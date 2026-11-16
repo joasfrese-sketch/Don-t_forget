@@ -25,7 +25,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # Das Android-SDK ist auf dem Runner schon installiert; es fehlen nur die akzeptierten Lizenzen.
+      - name: Android-SDK-Lizenzen akzeptieren
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
 
       - name: Abhängigkeiten installieren
         run: npm ci

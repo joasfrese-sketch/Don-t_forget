@@ -67,6 +67,11 @@ describe('GitHub-Actions-Workflow (APK bauen)', () => {
       expect(w, part).toContain(part);
     }
   });
+  it('nutzt das vorinstallierte Android-SDK des Runners und akzeptiert nur die Lizenzen (setup-android scheitert dort)', () => {
+    const w = wf();
+    expect(w).toContain('sdkmanager --licenses');
+    expect(w).not.toContain('android-actions/setup-android');
+  });
   it('braucht keine Geheimnisse', () => {
     expect(wf()).not.toMatch(/secrets\./);
   });
