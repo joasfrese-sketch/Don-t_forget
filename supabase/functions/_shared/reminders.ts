@@ -15,3 +15,9 @@ export function parseAction(body: unknown): { id: string; token: string; action:
   if (action !== 'done' && action !== 'snooze') return null;
   return { id, token, action };
 }
+
+// Gemeinsamer Nachfass-Hinweis. Bewusst nur die Anzahl: keine Notiztexte auf dem Sperrbildschirm.
+export function buildDigestPayload(count: number): string {
+  const what = count === 1 ? '1 offene Erinnerung' : `${count} offene Erinnerungen`;
+  return JSON.stringify({ kind: 'digest', title: "Don't forget", body: `Du hast noch ${what}. Schau in die App, was wann dran ist.`, url: '/#/' });
+}

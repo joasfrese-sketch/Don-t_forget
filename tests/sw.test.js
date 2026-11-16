@@ -35,3 +35,19 @@ it('registriert push und notificationclick', () => {
   expect(typeof listeners.push).toBe('function');
   expect(typeof listeners.notificationclick).toBe('function');
 });
+
+it('Nachfass-Hinweis: eigener tag, keine Aktionsknöpfe, Tipp öffnet die Hauptansicht', () => {
+  const { self } = loadSw();
+  const o = self.__test.notificationOptions({ kind: 'digest', title: "Don't forget", body: 'Du hast noch 2 offene Erinnerungen.', url: '/#/' });
+  expect(o.tag).toBe('digest');
+  expect(o.actions).toBeUndefined();
+  expect(o.data).toEqual({ url: '/#/' });
+  expect(o.body).toBe('Du hast noch 2 offene Erinnerungen.');
+});
+
+it('Nachricht ohne noteId wirft nicht und setzt kein tag', () => {
+  const { self } = loadSw();
+  const o = self.__test.notificationOptions({ title: 'x', body: 'y' });
+  expect(o.tag).toBeUndefined();
+  expect(o.renotify).toBeUndefined();
+});

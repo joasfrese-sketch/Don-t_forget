@@ -2,16 +2,19 @@
 const functionsUrl = new URLSearchParams(self.location.search).get('fn') || '';
 
 function notificationOptions(p) {
-  return {
-    body: p.body || '',
-    icon: '/icon-192.png',
-    badge: '/badge-96.png',
-    tag: p.noteId,
-    renotify: true,
+  const base = { body: p.body || '', icon: '/icon-192.png', badge: '/badge-96.png' };
+  if (p.kind === 'digest') {
+    // Sammelhinweis: kein Erledigt/Später, ein Tipp öffnet die Hauptansicht
+    return { ...base, tag: 'digest', renotify: true, data: { url: p.url || '/#/' } };
+  }
+  const o = {
+    ...base,
     requireInteraction: true,
     data: { noteId: p.noteId, token: p.token, url: p.url || '/' },
     actions: [{ action: 'done', title: 'Erledigt' }, { action: 'snooze', title: 'Später' }],
   };
+  if (p.noteId) { o.tag = p.noteId; o.renotify = true; }
+  return o;
 }
 
 function actionRequest(action, data, fnUrl) {
