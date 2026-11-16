@@ -1,7 +1,8 @@
-// Einstellungen: Standard-Uhrzeit, Abmelden. Push-Schalter folgt in Task 6.
+// Einstellungen: Standard-Uhrzeit, Benachrichtigungen auf diesem Gerät, Abmelden.
 import { saveSettings } from '../lib/data.js';
 import { supabase } from '../lib/supabase.js';
 import { $, toast } from './util.js';
+import { pushSupported, pushActive, enablePush, disablePush, isIOS, isStandalone } from '../lib/push.js';
 import { openDialog } from './dialog.js';
 
 export function openSettings(settings, onSaved) {
@@ -26,6 +27,38 @@ export function openSettings(settings, onSaved) {
     try { await saveSettings(next); onSaved(next); toast('Gespeichert'); } catch (err) { toast(err.message); }
   });
   $('#sClose', dlg).addEventListener('click', () => dlg.close());
-  $('#sLogout', dlg).addEventListener('click', async () => { dlg.close(); await supabase.auth.signOut(); });
+  $('#sLogout', dlg).addEventListener('click', async () => {
+    dlg.close();
+    try { await disablePush(); } catch { /* Gerät hatte kein Abo */ }
+    await supabase.auth.signOut();
+  });
+  renderPush($('#pushArea', dlg));
   return dlg;
+}
+
+async function renderPush(el) {
+  if (isIOS() && !isStandalone()) {
+    el.innerHTML = `<div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+      Für Erinnerungen auf dem iPad: Tippe auf <b>Teilen</b> → <b>„Zum Home-Bildschirm“</b> und öffne die App von dort.</div>`;
+    return;
+  }
+  if (!pushSupported()) {
+    el.innerHTML = '<p class="text-sm text-stone-500">Dieser Browser unterstützt keine Benachrichtigungen.</p>';
+    return;
+  }
+  const on = await pushActive();
+  el.innerHTML = `
+    <label class="flex items-center justify-between gap-3">
+      <span>Benachrichtigungen auf diesem Gerät</span>
+      <input id="sPush" type="checkbox" class="h-6 w-6 accent-amber-500" ${on ? 'checked' : ''} />
+    </label>
+    ${Notification.permission === 'denied' ? '<p class="mt-1 text-xs text-red-600">Im Browser blockiert – bitte in den Website-Einstellungen erlauben.</p>' : ''}`;
+  $('#sPush', el).addEventListener('change', async (e) => {
+    e.target.disabled = true;
+    try {
+      if (e.target.checked) { await enablePush(); toast('Benachrichtigungen an'); }
+      else { await disablePush(); toast('Benachrichtigungen aus'); }
+    } catch (err) { e.target.checked = !e.target.checked; toast(err.message); }
+    e.target.disabled = false;
+  });
 }

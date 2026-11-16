@@ -6,6 +6,9 @@ import { createApp } from './ui/app.js';
 import { openEdit } from './ui/edit.js';
 import { openSettings } from './ui/settings.js';
 import { toast } from './ui/util.js';
+import { registerServiceWorker } from './lib/push.js';
+
+registerServiceWorker();
 
 const root = document.getElementById('app');
 let app = null;
