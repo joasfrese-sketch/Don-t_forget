@@ -175,6 +175,11 @@ try {
            start() { Promise.resolve().then(() => { this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: 'morgen Zahnarzt anrufen' }], { isFinal: true })] }); this.onend && this.onend(); }); }
            stop() {}
          };`,
+    throws: `window.__starts = 0;
+         window.SpeechRecognition = window.webkitSpeechRecognition = class {
+           start() { window.__starts++; throw new Error('nicht nutzbar'); }
+           stop() {}
+         };`,
     denied: `window.SpeechRecognition = window.webkitSpeechRecognition = class {
            start() { Promise.resolve().then(() => { this.onerror && this.onerror({ error: 'not-allowed' }); this.onend && this.onend(); }); }
            stop() {}
@@ -289,6 +294,18 @@ try {
     assert.equal(st.parseBodies[0].text, 'morgen Zahnarzt anrufen');
     assert.equal(await pg.locator('#text').inputValue(), 'morgen Zahnarzt anrufen');
     await pg.getByText('morgen 17:00').first().waitFor();
+    await pg.close();
+  }
+  { // start() wirft (z. B. iPad-App): Meldung, Knopf nicht hängend, erneutes Tippen versucht es wieder
+    const { pg, st } = await appPage({ speech: 'throws', parse: () => TWO });
+    await pg.locator('#micBtn').click();
+    await pg.getByText('Spracherkennung hat nicht geklappt.').waitFor();
+    assert.equal(await pg.locator('#micBtn').getAttribute('aria-pressed'), 'false', 'Mikrofon bleibt nicht „gedrückt“');
+    await pg.locator('#micBtn').click();
+    await until2(() => true, pg);
+    assert.equal(await pg.evaluate(() => window.__starts), 2, 'zweiter Tipp startet erneut (nicht hängend)');
+    assert.equal(await pg.locator('#micBtn').getAttribute('aria-pressed'), 'false');
+    assert.equal(st.parseBodies.length, 0, 'ohne Sprache keine KI-Anfrage');
     await pg.close();
   }
   { // Mikrofon-Recht verweigert: Meldung, App bleibt bedienbar

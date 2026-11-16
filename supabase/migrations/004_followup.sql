@@ -16,6 +16,20 @@ begin
 exception when duplicate_object then null;
 end $$;
 
+-- Eine unbekannte Zeitzone (z. B. 'Etc/Unknown' aus manchen Browsern) wird beim Speichern durch Europe/Berlin ersetzt.
+-- Speichern schlägt dadurch nie fehl, und der Server rechnet nie mit einer ungültigen Zone.
+create or replace function public.user_settings_normalize_tz() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if not exists (select 1 from pg_catalog.pg_timezone_names where name = new.timezone) then
+    new.timezone := 'Europe/Berlin';
+  end if;
+  return new;
+end $$;
+drop trigger if exists user_settings_normalize_tz on public.user_settings;
+create trigger user_settings_normalize_tz before insert or update of timezone on public.user_settings
+  for each row execute function public.user_settings_normalize_tz();
+
 -- ---------- Notizen ----------
 alter table public.notes
   add column if not exists followup_at timestamptz,
@@ -44,13 +58,21 @@ declare
   local_ts timestamp := p_now at time zone p_tz;
   local_t  time := local_ts::time;
   local_d  date := local_ts::date;
+  due      timestamptz;
+  due_ts   timestamp;
 begin
   if local_t >= p_evening then
     return ((local_d + 1) + p_morning) at time zone p_tz;
   elsif local_t < p_morning then
     return (local_d + p_morning) at time zone p_tz;
   end if;
-  return p_now + make_interval(hours => p_hours);
+  due := p_now + make_interval(hours => p_hours);
+  due_ts := due at time zone p_tz;
+  -- Landet "+ Stunden" in der Nacht (nach Mitternacht, vor morning_at), kommt der Hinweis stattdessen morgens.
+  if due_ts::time < p_morning then
+    return (due_ts::date + p_morning) at time zone p_tz;
+  end if;
+  return due;
 end $$;
 
 -- Nachfass-Zeitpunkt für einen Nutzer nach seinen Einstellungen (ohne Zeile: Vorgaben; ausgeschaltet: null).
@@ -64,7 +86,12 @@ begin
     return public.followup_time(p_now, 'Europe/Berlin', '18:00', '08:00', 5);
   end if;
   if not s.followup_enabled then return null; end if;
-  return public.followup_time(p_now, s.timezone, s.evening_from, s.morning_at, s.followup_hours);
+  begin
+    return public.followup_time(p_now, s.timezone, s.evening_from, s.morning_at, s.followup_hours);
+  exception when others then
+    -- z. B. unbekannte Zeitzone im Altbestand: Vorgaben-Zone nehmen, damit nie alle Erinnerungen blockiert werden
+    return public.followup_time(p_now, 'Europe/Berlin', s.evening_from, s.morning_at, s.followup_hours);
+  end;
 end $$;
 
 -- ---------- Fällige Erinnerungen beanspruchen (setzt jetzt zusätzlich followup_at) ----------

@@ -37,6 +37,11 @@ describe('followup_time (Zeitregel)', () => {
     expect(await ft('2026-11-16T23:30:00Z')).toBe('2026-11-17T07:00:00.000Z'); // 00:30 am 17.11.
     expect(await ft('2026-11-17T02:00:00Z')).toBe('2026-11-17T07:00:00.000Z'); // 03:00 am 17.11.
   });
+  it('Ergebnis nach Mitternacht (z. B. 12 Stunden) → 08:00 am selben Morgen, nicht mitten in der Nacht', async () => {
+    expect(await ft('2026-11-16T13:00:00Z', { hours: 12 })).toBe('2026-11-17T07:00:00.000Z'); // 14:00 + 12 h = 02:00 → 08:00
+    expect(await ft('2026-11-16T13:00:00Z', { hours: 24 })).toBe('2026-11-17T13:00:00.000Z'); // 14:00 nächster Tag bleibt
+    expect(await ft('2026-11-16T13:00:00Z', { hours: 20 })).toBe('2026-11-17T09:00:00.000Z'); // 14:00 + 20 h = 10:00 am nächsten Tag bleibt
+  });
   it('genau um 08:00 zählt als Tag (+ Stunden)', async () => {
     expect(await ft('2026-11-16T07:00:00Z')).toBe('2026-11-16T12:00:00.000Z');
   });
@@ -73,6 +78,30 @@ describe('claim_due_notes setzt followup_at', () => {
   });
   it('Einstellungen verbieten Abend vor Morgen', async () => {
     await expect(setSettings(A, { evening_from: '07:00', morning_at: '08:00' })).rejects.toThrow();
+  });
+});
+
+describe('ungültige Zeitzone (darf die Erinnerungen anderer nicht blockieren)', () => {
+  it('Trigger ersetzt eine unbekannte Zone beim Speichern durch Europe/Berlin', async () => {
+    await db.query("insert into public.user_settings (user_id, timezone) values ($1, 'Mars/Olympus')", [A]);
+    expect((await db.query('select timezone from public.user_settings where user_id = $1', [A])).rows[0].timezone).toBe(BERLIN);
+    await db.query("update public.user_settings set timezone = 'Etc/Unknown' where user_id = $1", [A]);
+    expect((await db.query('select timezone from public.user_settings where user_id = $1', [A])).rows[0].timezone).toBe(BERLIN);
+  });
+  it('gültige Zonen bleiben unverändert', async () => {
+    await db.query("insert into public.user_settings (user_id, timezone) values ($1, 'America/New_York')", [A]);
+    expect((await db.query('select timezone from public.user_settings where user_id = $1', [A])).rows[0].timezone).toBe('America/New_York');
+  });
+  it('schon vorhandene ungültige Zone: claim_due_notes läuft für alle Nutzer weiter', async () => {
+    await db.exec('alter table public.user_settings disable trigger user_settings_normalize_tz'); // Altbestand nachstellen
+    try {
+      await db.query("insert into public.user_settings (user_id, timezone) values ($1, 'Mars/Olympus')", [A]);
+    } finally { await db.exec('alter table public.user_settings enable trigger user_settings_normalize_tz'); }
+    const a = await addNote(A); const b = await addNote(B);
+    const rows = await claimNotes();
+    expect(rows.map((r) => r.id).sort()).toEqual([a.id, b.id].sort());
+    const ra = rows.find((r) => r.id === a.id);
+    expect(new Date(ra.followup_at).toISOString()).toBe(await ft(ra.sent_at.toISOString())); // Vorgaben-Zone Berlin
   });
 });
 

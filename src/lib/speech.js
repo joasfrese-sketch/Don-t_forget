@@ -23,6 +23,13 @@ export function startListening({ onText, onEnd, onError }) {
   };
   rec.onerror = (e) => onError(e.error);
   rec.onend = () => onEnd();
-  rec.start();
+  try {
+    rec.start();
+  } catch {
+    // z. B. installierte iPad-App: Konstruktor vorhanden, aber nicht nutzbar → sofort Fehler und Ende melden
+    onError('start-failed');
+    onEnd();
+    return { stop() {} };
+  }
   return { stop: () => rec.stop() };
 }

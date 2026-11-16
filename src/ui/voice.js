@@ -48,17 +48,20 @@ export function mountVoice(root, { input, getSettings, onSaved }) {
     micBtn.addEventListener('click', () => {
       if (handle) return handle.stop(); // zweiter Tipp beendet das Zuhören
       let failed = false;
+      let ended = false;
       micBtn.setAttribute('aria-pressed', 'true');
-      handle = startListening({
+      const h = startListening({
         onText: (t) => { input.value = t; updateAi(); },
         onError: (code) => { failed = true; const m = speechErrorMessage(code); if (m) toast(m); },
         onEnd: () => {
+          ended = true;
           handle = null;
           micBtn.setAttribute('aria-pressed', 'false');
           const t = input.value.trim();
           if (!failed && t) understand(t); // bei Fehlern bleibt der Text einfach im Feld
         },
       });
+      if (!ended) handle = h; // endete es schon beim Start (Fehler), darf nichts „laufend“ bleiben
     });
   }
 
