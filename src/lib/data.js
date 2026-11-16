@@ -5,7 +5,9 @@ export const DEFAULTS = {
   default_time: '17:00', timezone: 'Europe/Berlin',
   followup_enabled: true, followup_hours: 5, evening_from: '18:00', morning_at: '08:00',
 };
-const COLUMNS = Object.keys(DEFAULTS).join(', ');
+// Alle Spalten abfragen (nicht einzeln aufzählen): so lädt die App auch, wenn die Datenbank noch nicht auf dem neuesten Stand ist.
+// normSettings füllt fehlende Felder aus den Vorgaben.
+const COLUMNS = '*';
 
 async function uid() {
   const { data } = await supabase.auth.getUser();

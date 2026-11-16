@@ -185,7 +185,7 @@ try {
            stop() {}
          };`,
   };
-  async function appPage({ speech, parse }) {
+  async function appPage({ speech, parse, oldSchema = false }) {
     const pg = await browser.newPage({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
     await pg.clock.install({ time: new Date('2026-11-16T09:00:00Z') });
     const st = { posts: [], parseBodies: [] };
@@ -194,6 +194,10 @@ try {
       const req = r.request();
       const single = (req.headers()['accept'] || '').includes('vnd.pgrst.object');
       if (req.url().includes('/user_settings')) {
+        // Alte Datenbank ohne Nachfass-Spalten: ausdrücklich danach zu fragen schlägt fehl (wie bei Supabase)
+        if (oldSchema && decodeURIComponent(req.url()).includes('followup_')) {
+          return r.fulfill({ status: 400, json: { code: '42703', details: null, hint: null, message: 'column user_settings.followup_enabled does not exist' } });
+        }
         const cfg = { default_time: '17:00:00', timezone: 'Europe/Berlin' };
         return r.fulfill({ status: req.method() === 'GET' ? 200 : 201, json: single ? cfg : [cfg] });
       }
@@ -245,6 +249,15 @@ try {
       ['Zahnarzt anrufen', '2026-11-16T16:00:00.000Z', false],
     ]);
     assert.equal(await pg.locator('#text').inputValue(), '', 'Feld nach dem Speichern leer');
+    await pg.close();
+  }
+  { // Neue App, noch nicht aktualisierte Datenbank: die App muss trotzdem laden (Vorgaben für Nachfassen)
+    const { pg } = await appPage({ speech: 'none', parse: () => TWO, oldSchema: true });
+    await pg.locator('#openSettings').click();
+    await pg.locator('#followupToggle').click();
+    assert.equal(await pg.locator('#fuHours').inputValue(), '5', 'Vorgabe 5 Stunden');
+    assert.equal(await pg.locator('#evening').inputValue(), '18:00');
+    assert.equal(await pg.locator('#morning').inputValue(), '08:00');
     await pg.close();
   }
   { // Eintrag in der Vorschau entfernen und Text ändern
