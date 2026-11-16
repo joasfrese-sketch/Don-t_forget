@@ -1,24 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { newDb, A, B } from './helpers/db.js';
 
-const A = '00000000-0000-0000-0000-00000000000a';
-const B = '00000000-0000-0000-0000-00000000000b';
 let db;
-
-// Minimale Nachbildung dessen, was Supabase bereitstellt
-const STUBS = `
-  create role anon; create role authenticated; create role service_role;
-  create schema auth;
-  create table auth.users (id uuid primary key);
-  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
-  grant usage on schema auth to authenticated, service_role;
-  grant execute on function auth.uid() to authenticated, service_role;
-  create schema vault;
-  create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
-  insert into vault.decrypted_secrets values ('cron_secret', 'c1'), ('vapid_private_key', 'p1'), ('other', 'x');
-  insert into auth.users values ('${A}'), ('${B}');
-`;
 
 async function addNote(user, fields = {}) {
   const f = { text: 'Test', remind_at: "now() - interval '1 minute'", status: "'open'", ...fields };
@@ -30,11 +13,7 @@ const action = async (id, token, a) => (await db.query('select public.note_actio
 const get = async (id) => (await db.query('select * from public.notes where id = $1', [id])).rows[0];
 
 beforeAll(async () => {
-  db = new PGlite();
-  await db.exec(STUBS);
-  for (const f of ['001_schema.sql', '002_app_secret.sql']) {
-    await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
-  }
+  db = await newDb(['001_schema.sql', '002_app_secret.sql']);
 });
 
 describe('Schema', () => {
