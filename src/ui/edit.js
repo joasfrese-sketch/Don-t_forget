@@ -11,13 +11,13 @@ export function openEdit(note, settings, onSaved) {
     <form method="dialog" id="editForm" class="flex flex-col gap-3">
       <h2 class="text-lg font-semibold">Notiz</h2>
       <textarea id="eText" rows="3" class="field resize-none">${esc(note.text)}</textarea>
-      <label class="flex flex-col gap-1 text-sm text-stone-500">Erinnerung
+      <label class="flex flex-col gap-1 text-sm text-muted">Erinnerung
         <input id="eWhen" type="datetime-local" required class="field" value="${toLocalInputValue(new Date(note.remind_at), tz)}" ${done ? 'disabled' : ''} />
       </label>
       <div class="mt-2 flex flex-wrap gap-2">
         <button value="save" class="btn-primary flex-1">Speichern</button>
         <button type="button" id="eToggle" class="btn-ghost">${done ? 'Wieder öffnen' : '✓ Erledigt'}</button>
-        <button type="button" id="eDelete" class="btn-ghost text-red-600">Löschen</button>
+        <button type="button" id="eDelete" class="btn-ghost text-danger">Löschen</button>
       </div>
     </form>`);
 

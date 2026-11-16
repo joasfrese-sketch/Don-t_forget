@@ -13,7 +13,7 @@ export function openSettings(settings, onSaved) {
         <span>Standard-Erinnerung um</span>
         <input id="sTime" type="time" class="field w-32" value="${settings.default_time}" />
       </label>
-      <p class="-mt-2 text-xs text-stone-500">Neue Notizen erinnern dich zu dieser Uhrzeit – heute, oder morgen, wenn sie schon vorbei ist.</p>
+      <p class="-mt-2 text-xs text-muted">Neue Notizen erinnern dich zu dieser Uhrzeit – heute, oder morgen, wenn sie schon vorbei ist.</p>
       <div id="pushArea"></div>
       <div class="mt-2 flex gap-2">
         <button id="sClose" class="btn-primary flex-1">Fertig</button>
@@ -38,21 +38,21 @@ export function openSettings(settings, onSaved) {
 
 async function renderPush(el) {
   if (isIOS() && !isStandalone()) {
-    el.innerHTML = `<div class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+    el.innerHTML = `<div class="rounded-xl bg-brand/10 p-3 text-sm text-ink">
       Für Erinnerungen auf dem iPad: Tippe auf <b>Teilen</b> → <b>„Zum Home-Bildschirm“</b> und öffne die App von dort.</div>`;
     return;
   }
   if (!pushSupported()) {
-    el.innerHTML = '<p class="text-sm text-stone-500">Dieser Browser unterstützt keine Benachrichtigungen.</p>';
+    el.innerHTML = '<p class="text-sm text-muted">Dieser Browser unterstützt keine Benachrichtigungen.</p>';
     return;
   }
   const on = await pushActive();
   el.innerHTML = `
     <label class="flex items-center justify-between gap-3">
       <span>Benachrichtigungen auf diesem Gerät</span>
-      <input id="sPush" type="checkbox" class="h-6 w-6 accent-amber-500" ${on ? 'checked' : ''} />
+      <input id="sPush" type="checkbox" class="h-6 w-6 accent-brand" ${on ? 'checked' : ''} />
     </label>
-    ${Notification.permission === 'denied' ? '<p class="mt-1 text-xs text-red-600">Im Browser blockiert – bitte in den Website-Einstellungen erlauben.</p>' : ''}`;
+    ${Notification.permission === 'denied' ? '<p class="mt-1 text-xs text-danger">Im Browser blockiert – bitte in den Website-Einstellungen erlauben.</p>' : ''}`;
   $('#sPush', el).addEventListener('change', async (e) => {
     e.target.disabled = true;
     try {

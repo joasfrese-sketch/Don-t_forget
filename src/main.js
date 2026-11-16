@@ -7,7 +7,9 @@ import { openEdit } from './ui/edit.js';
 import { openSettings } from './ui/settings.js';
 import { toast } from './ui/util.js';
 import { registerServiceWorker } from './lib/push.js';
+import { initTheme } from './lib/theme.js';
 
+initTheme();
 registerServiceWorker();
 
 const root = document.getElementById('app');
@@ -33,7 +35,7 @@ async function start() {
   try {
     settings = await getSettings();
   } catch (e) {
-    root.innerHTML = `<p class="p-6 text-center text-red-600">Fehler beim Laden: ${e.message}</p>`;
+    root.innerHTML = `<p class="p-6 text-center text-danger">Fehler beim Laden: ${e.message}</p>`;
     return;
   }
   app = createApp(root, settings, {

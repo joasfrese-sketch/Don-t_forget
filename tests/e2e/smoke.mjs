@@ -57,7 +57,14 @@ try {
   assert.equal(await input.inputValue(), '');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'text', 'Fokus bleibt');
 
-  await page.screenshot({ path: process.env.SHOT || 'smoke.png', fullPage: true });
+  if (process.env.SHOT_DIR) {
+    for (const scheme of ['light', 'dark']) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: `${process.env.SHOT_DIR}/main-${scheme}.png`, fullPage: true });
+    }
+    await page.emulateMedia({ colorScheme: 'light' });
+  }
   // --- Anmeldung mit E-Mail und Passwort (ohne gespeicherte Sitzung) ---
   const login = await browser.newPage({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
   let tokenBody = null;

@@ -8,7 +8,7 @@ export function toast(msg) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'toast';
-    el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-2 text-sm text-white shadow-lg dark:bg-stone-100 dark:text-stone-900 transition-opacity';
+    el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl bg-brand px-4 py-2 text-sm text-on-brand shadow-lg transition-opacity';
     document.body.append(el);
   }
   el.textContent = msg;

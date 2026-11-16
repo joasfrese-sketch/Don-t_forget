@@ -9,15 +9,15 @@ export function renderLogin(root) {
       <div class="text-center">
         <div class="text-5xl">🔔</div>
         <h1 class="mt-2 text-2xl font-semibold">Don't forget</h1>
-        <p class="mt-1 text-sm text-stone-500">Melde dich an – du bleibst auf diesem Gerät angemeldet.</p>
+        <p class="mt-1 text-sm text-muted">Melde dich an – du bleibst auf diesem Gerät angemeldet.</p>
       </div>
       <form id="loginForm" class="flex flex-col gap-3">
         <input id="email" type="email" required autocomplete="email" placeholder="deine@email.de" class="field" />
         <input id="password" type="password" required minlength="6" autocomplete="current-password" placeholder="Passwort" class="field" />
         <button id="signIn" class="btn-primary py-3">Anmelden</button>
         <div class="flex justify-between text-sm">
-          <button type="button" id="signupBtn" class="text-amber-600 hover:underline">Konto erstellen</button>
-          <button type="button" id="resetBtn" class="text-stone-500 hover:underline">Passwort vergessen?</button>
+          <button type="button" id="signupBtn" class="text-brand hover:underline">Konto erstellen</button>
+          <button type="button" id="resetBtn" class="text-muted hover:underline">Passwort vergessen?</button>
         </div>
       </form>
       <p id="msg" class="text-center text-sm"></p>
@@ -25,7 +25,7 @@ export function renderLogin(root) {
 
   const msg = (text, ok = false) => {
     const el = $('#msg');
-    el.className = 'text-center text-sm ' + (ok ? 'text-stone-600 dark:text-stone-300' : 'text-red-600');
+    el.className = 'text-center text-sm ' + (ok ? 'text-muted' : 'text-danger');
     el.innerHTML = text;
   };
   const creds = () => ({ email: $('#email').value.trim(), password: $('#password').value });
@@ -67,7 +67,7 @@ export function renderNewPassword(root, onDone) {
         <input id="newPw" type="password" required minlength="6" autocomplete="new-password" placeholder="Neues Passwort" class="field" />
         <button class="btn-primary py-3">Speichern</button>
       </form>
-      <p id="msg" class="text-center text-sm text-red-600"></p>
+      <p id="msg" class="text-center text-sm text-danger"></p>
     </main>`;
   $('#pwForm').addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -21,11 +21,11 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
           <input id="text" autocomplete="off" enterkeyhint="done" placeholder="Was fällt dir ein?" class="field" autofocus />
           <button class="btn-primary px-4" aria-label="Speichern">↵</button>
         </div>
-        <div class="flex flex-wrap items-center gap-2 px-1 text-sm text-stone-500">
+        <div class="flex flex-wrap items-center gap-2 px-1 text-sm text-muted">
           <span id="whenLabel"></span>
-          <button type="button" id="changeWhen" class="text-amber-600 hover:underline">ändern</button>
+          <button type="button" id="changeWhen" class="text-brand hover:underline">ändern</button>
           <input id="whenInput" type="datetime-local" class="field hidden w-auto py-1 text-sm" />
-          <button type="button" id="resetWhen" class="hidden text-stone-500 hover:underline">Standard</button>
+          <button type="button" id="resetWhen" class="hidden text-muted hover:underline">Standard</button>
         </div>
       </form>
       <section id="lists" class="flex flex-col gap-5"></section>
@@ -51,8 +51,8 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
     return `
       <li class="flex items-center gap-2 px-3 py-2">
         <button data-open="${n.id}" class="min-w-0 flex-1 text-left">
-          <div class="truncate ${kind === 'done' ? 'text-stone-400 line-through' : ''}">${esc(n.text)}</div>
-          <div class="text-xs text-stone-500">${kind === 'done' ? 'erledigt' : esc(when)}</div>
+          <div class="truncate ${kind === 'done' ? 'text-muted line-through' : ''}">${esc(n.text)}</div>
+          <div class="text-xs text-muted">${kind === 'done' ? 'erledigt' : esc(when)}</div>
         </button>${actions}
       </li>`;
   }
@@ -61,8 +61,8 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
     if (!items.length) return '';
     return `
       <div>
-        <h2 class="mb-2 px-1 text-xs font-semibold uppercase tracking-wide ${kind === 'due' ? 'text-amber-600' : 'text-stone-500'}">${title}</h2>
-        <ul class="card divide-y divide-stone-100 dark:divide-stone-800">${items.map((n) => row(n, kind)).join('')}</ul>
+        <h2 class="mb-2 px-1 text-xs font-semibold uppercase tracking-wide ${kind === 'due' ? 'text-brand' : 'text-muted'}">${title}</h2>
+        <ul class="card divide-y divide-line">${items.map((n) => row(n, kind)).join('')}</ul>
       </div>`;
   }
 
@@ -72,11 +72,11 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
     $('#lists', root).innerHTML = `
       ${section('Fällig', g.due, 'due')}
       ${section('Anstehend', g.upcoming, 'upcoming')}
-      ${empty ? '<p class="py-8 text-center text-sm text-stone-400">Nichts offen. Schreib oben auf, was dir einfällt.</p>' : ''}
+      ${empty ? '<p class="py-8 text-center text-sm text-muted">Nichts offen. Schreib oben auf, was dir einfällt.</p>' : ''}
       ${g.done.length ? `
         <div>
-          <button id="toggleDone" class="px-1 text-xs font-semibold uppercase tracking-wide text-stone-500">${doneOpen ? '▾' : '▸'} Erledigt (${g.done.length})</button>
-          ${doneOpen ? `<ul class="card mt-2 divide-y divide-stone-100 dark:divide-stone-800">${g.done.map((n) => row(n, 'done')).join('')}</ul>` : ''}
+          <button id="toggleDone" class="px-1 text-xs font-semibold uppercase tracking-wide text-muted">${doneOpen ? '▾' : '▸'} Erledigt (${g.done.length})</button>
+          ${doneOpen ? `<ul class="card mt-2 divide-y divide-line">${g.done.map((n) => row(n, 'done')).join('')}</ul>` : ''}
         </div>` : ''}`;
   }
 

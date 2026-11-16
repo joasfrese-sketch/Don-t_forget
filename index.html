@@ -4,14 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Don't forget</title>
-    <meta name="theme-color" content="#f59e0b" />
+    <meta name="theme-color" content="#1e3a5f" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Don't forget" />
+    <script id="theme-init">
+      (function () {
+        var mode = 'system';
+        try { var v = localStorage.getItem('theme'); if (v === 'light' || v === 'dark' || v === 'system') mode = v; } catch (e) {}
+        document.documentElement.classList.toggle('dark', mode === 'dark' || (mode === 'system' && !!matchMedia('(prefers-color-scheme: dark)').matches));
+      })();
+    </script>
   </head>
-  <body class="bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased">
+  <body class="bg-page text-ink antialiased">
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
