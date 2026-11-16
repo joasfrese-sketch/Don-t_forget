@@ -1,27 +1,47 @@
-// Aufruf der Edge Function parse-note und deutsche Fehlermeldungen.
-import { supabase } from './supabase.js';
+// Claude direkt aus der App: Der Text wird mit dem eigenen Schlüssel des Nutzers an die Anthropic-API geschickt.
+import { TOOL, MAX_INPUT, buildSystemPrompt, describeNow, extractToolInput, validateParsed } from './ai-parse.js';
 
-const MESSAGES = {
-  not_configured: 'Claude ist noch nicht eingerichtet.',
-  limit: 'Tageslimit für die KI erreicht. Bitte tippen.',
+const MODEL = 'claude-haiku-5-5';
+const URL = 'https://api.anthropic.com/v1/messages';
+const MSG = {
+  noKey: 'Claude-Schlüssel fehlt. Bitte in den Einstellungen eintragen.',
+  rejected: 'Der Claude-Schlüssel wurde abgelehnt.',
+  limit: 'Claude ist gerade überlastet oder das Limit ist erreicht. Bitte tippen.',
   invalid: 'Das konnte ich nicht verarbeiten.',
+  unavailable: 'Claude ist gerade nicht erreichbar. Bitte tippen.',
 };
-const UNAVAILABLE = 'Claude ist gerade nicht erreichbar. Bitte tippen.';
 
-export const aiErrorMessage = (code) => MESSAGES[code] ?? UNAVAILABLE;
+export async function parseNotes(text, settings, fetchImpl = (...a) => fetch(...a)) {
+  const key = String(settings.ai_key ?? '').trim();
+  if (!key) throw new Error(MSG.noKey);
+  const t = String(text ?? '').trim();
+  if (!t || t.length > MAX_INPUT) throw new Error(MSG.invalid);
 
-// supabase-js liefert bei Statuscodes ≠ 2xx einen Fehler; die Antwort der Funktion steckt in error.context.
-async function errorCode(error) {
-  try { return (await error.context.json()).error; } catch { return undefined; }
-}
-
-export async function parseNotes(text, settings) {
   let res;
   try {
-    res = await supabase.functions.invoke('parse-note', {
-      body: { text, now: new Date().toISOString(), timezone: settings.timezone, defaultTime: settings.default_time },
+    res = await fetchImpl(URL, {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true', // direkter Aufruf aus der App (Schlüssel gehört dem Nutzer)
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1024,
+        system: buildSystemPrompt(describeNow(new Date().toISOString(), settings.timezone), settings.default_time),
+        messages: [{ role: 'user', content: t }],
+        tools: [TOOL],
+        tool_choice: { type: 'tool', name: TOOL.name },
+      }),
     });
-  } catch { throw new Error(UNAVAILABLE); }
-  if (res.error) throw new Error(aiErrorMessage(await errorCode(res.error)));
-  return res.data?.notes ?? [];
+  } catch { throw new Error(MSG.unavailable); }
+
+  if (res.status === 401 || res.status === 403) throw new Error(MSG.rejected);
+  if (res.status === 429) throw new Error(MSG.limit);
+  if (!res.ok) throw new Error(MSG.unavailable);
+  let json;
+  try { json = await res.json(); } catch { throw new Error(MSG.unavailable); }
+  return validateParsed(extractToolInput(json));
 }
