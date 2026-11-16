@@ -65,3 +65,18 @@ export function formatWhen(d, now, timeZone) {
   if (day === addDays(today, -1)) return `gestern ${time}`;
   return `${WD[p.wd]} ${pad(p.d)}.${pad(p.m)}. ${time}`;
 }
+
+// Zeitpunkt des Nachfass-Hinweises für eine Erinnerung, die um `now` kommt (Ortszeit der Zone `tz`):
+// ab `eveningFrom` → nächster Morgen `morningAt`; vor `morningAt` (Nacht) → am selben Morgen;
+// sonst `hours` Stunden später – landet das nach Mitternacht vor `morningAt`, dann `morningAt`.
+export function followupTime(now, tz, eveningFrom, morningAt, hours) {
+  const hhmm = (p) => `${pad(p.h)}:${pad(p.min)}`;
+  const p = parts(now, tz);
+  const today = ymd(p);
+  if (hhmm(p) >= eveningFrom) return zonedToUtc(addDays(today, 1), morningAt, tz);
+  if (hhmm(p) < morningAt) return zonedToUtc(today, morningAt, tz);
+  const due = new Date(now.getTime() + hours * 3600e3);
+  const dp = parts(due, tz);
+  if (hhmm(dp) < morningAt) return zonedToUtc(ymd(dp), morningAt, tz);
+  return due;
+}
