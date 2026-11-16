@@ -25,7 +25,7 @@ create index if not exists notes_due_idx on public.notes (status, remind_at) whe
 create index if not exists notes_user_idx on public.notes (user_id);
 
 create or replace function public.notes_before_update() returns trigger
-language plpgsql as $$
+language plpgsql set search_path = '' as $$
 begin
   new.updated_at := now();
   if new.remind_at is distinct from old.remind_at then
@@ -115,7 +115,7 @@ end $$;
 do $$
 begin
   create extension if not exists pg_cron;
-  create extension if not exists pg_net;
+  create extension if not exists pg_net with schema extensions;
   perform cron.schedule('dont-forget-reminders', '* * * * *', $cron$
     select net.http_post(
       url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/send-reminders',
