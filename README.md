@@ -15,7 +15,7 @@ Du brauchst: ein kostenloses Konto bei [Supabase](https://supabase.com) und bei
 [Vercel](https://vercel.com), außerdem Node.js auf deinem PC für zwei Befehle.
 
 > **Für dieses Repository bereits erledigt:** Das Supabase-Projekt `Don't_forget` ist eingerichtet
-> (Schema, Cron, Vault-Schlüssel, beide Edge Functions). Weiter bei Schritt 2, dann 7 und 8.
+> (Schema, Cron, Vault-Schlüssel, beide Edge Functions). Weiter bei Schritt 2 und 8.
 
 ### 1. Supabase-Projekt anlegen
 
@@ -27,13 +27,8 @@ Du brauchst: ein kostenloses Konto bei [Supabase](https://supabase.com) und bei
 ### 2. Anmeldung einstellen
 
 1. **Authentication → URL Configuration:** als *Site URL* die Adresse deiner App eintragen
-   (die bekommst du in Schritt 7 von Vercel, z. B. `https://dont-forget-xyz.vercel.app`) und
+   (für dieses Projekt: `https://dont-forget-sepia.vercel.app`) und
    dieselbe Adresse unter *Redirect URLs* hinzufügen.
-2. **Authentication → Email Templates:** Ergänze in den beiden Vorlagen **„Confirm signup“** und
-   **„Magic Link“** jeweils die Zeile `Dein Code: {{ .Token }}`.
-   (Die allererste Anmeldung verschickt „Confirm signup“, alle weiteren „Magic Link“.)
-   Wichtig fürs iPad: Dort öffnet der Link in Safari statt in der installierten App –
-   mit dem Code meldest du dich direkt in der App an.
 
 ### 3. Schlüssel für Push-Nachrichten erzeugen
 
@@ -100,7 +95,7 @@ Prüfen: `select * from cron.job;` zeigt `dont-forget-reminders`.
 | Gerät | Installieren | Danach |
 |---|---|---|
 | **Android (Chrome)** | Seite öffnen → Menü ⋮ → *App installieren* | anmelden, ⚙ → *Benachrichtigungen* an |
-| **iPad (Safari, iPadOS 16.4+)** | Seite öffnen → Teilen → *Zum Home-Bildschirm* → App **vom Home-Bildschirm** öffnen | mit **Code** aus der E-Mail anmelden, ⚙ → *Benachrichtigungen* an |
+| **iPad (Safari, iPadOS 16.4+)** | Seite öffnen → Teilen → *Zum Home-Bildschirm* → App **vom Home-Bildschirm** öffnen | anmelden, ⚙ → *Benachrichtigungen* an |
 | **PC (Chrome/Edge)** | Seite öffnen → Installieren-Symbol rechts in der Adressleiste | anmelden, ⚙ → *Benachrichtigungen* an |
 
 Android: Damit Erinnerungen auf dem Sperrbildschirm erscheinen, in den Android-Einstellungen
@@ -109,6 +104,10 @@ für die App *Benachrichtigungen auf dem Sperrbildschirm* erlauben.
 Wenn alle deine Geräte angemeldet sind: **Authentication → Sign In / Providers →
 „Allow new users to sign up“ ausschalten.** Sonst könnte sich jeder, der die Adresse kennt,
 ein Konto anlegen.
+
+**Anmeldung:** Beim ersten Mal *Konto erstellen* (E-Mail + Passwort) und den Link in der
+Bestätigungs-Mail öffnen – egal in welchem Browser. Danach auf jedem Gerät mit E-Mail und
+Passwort anmelden; die App bleibt angemeldet.
 
 ### 9. Testen
 

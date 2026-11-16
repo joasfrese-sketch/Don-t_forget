@@ -1,7 +1,7 @@
 import './style.css';
 import { supabase } from './lib/supabase.js';
 import { getSettings, subscribeNotes } from './lib/data.js';
-import { renderLogin } from './ui/login.js';
+import { renderLogin, renderNewPassword } from './ui/login.js';
 import { createApp } from './ui/app.js';
 import { openEdit } from './ui/edit.js';
 import { openSettings } from './ui/settings.js';
@@ -60,8 +60,16 @@ document.addEventListener('visibilitychange', () => {
 });
 
 let currentUser;
-supabase.auth.onAuthStateChange((_event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
   const id = session?.user?.id ?? null;
+  if (event === 'PASSWORD_RECOVERY') {
+    currentUser = id;
+    setTimeout(() => {
+      stop();
+      renderNewPassword(root, () => start().catch((e) => toast(e.message)));
+    });
+    return;
+  }
   if (id === currentUser) return;
   currentUser = id;
   // außerhalb des Callbacks weiterarbeiten (supabase-js empfiehlt keine awaits im Callback)

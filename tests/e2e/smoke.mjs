@@ -58,6 +58,52 @@ try {
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'text', 'Fokus bleibt');
 
   await page.screenshot({ path: process.env.SHOT || 'smoke.png', fullPage: true });
+  // --- Anmeldung mit E-Mail und Passwort (ohne gespeicherte Sitzung) ---
+  const login = await browser.newPage({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
+  let tokenBody = null;
+  await login.route(`${SB}/auth/v1/**`, (r) => {
+    const url = r.request().url();
+    if (url.includes('/token?grant_type=password')) {
+      tokenBody = r.request().postDataJSON();
+      if (tokenBody.password !== 'geheim123') return r.fulfill({ status: 400, json: { error: 'invalid_grant', error_description: 'Invalid login credentials', msg: 'Invalid login credentials', code: 'invalid_credentials' } });
+      return r.fulfill({ json: session });
+    }
+    return r.fulfill({ json: user });
+  });
+  await login.route(`${SB}/rest/v1/**`, (r) => {
+    const single = (r.request().headers()['accept'] || '').includes('vnd.pgrst.object');
+    const s = { default_time: '17:00:00', timezone: 'Europe/Berlin' };
+    return r.fulfill({ json: r.request().url().includes('user_settings') ? (single ? s : [s]) : [] });
+  });
+  await login.goto('http://localhost:4317/');
+  await login.locator('#email').fill('a@b.de');
+  await login.locator('#password').fill('falsch');
+  await login.locator('#signIn').click();
+  await login.getByText('E-Mail oder Passwort falsch').waitFor();
+  await login.locator('#password').fill('geheim123');
+  await login.locator('#signIn').click();
+  await login.locator('#text').waitFor();
+  assert.equal(tokenBody.email, 'a@b.de');
+  await login.close();
+
+  // --- Konto erstellen: Bestätigungs-Mail-Hinweis ---
+  const reg = await browser.newPage({ locale: 'de-DE' });
+  let signupBody = null;
+  await reg.route(`${SB}/auth/v1/**`, (r) => {
+    if (r.request().url().includes('/signup')) {
+      signupBody = r.request().postDataJSON();
+      return r.fulfill({ json: { ...user, identities: [{}], confirmation_sent_at: new Date().toISOString() } });
+    }
+    return r.fulfill({ json: {} });
+  });
+  await reg.goto('http://localhost:4317/');
+  await reg.locator('#email').fill('neu@b.de');
+  await reg.locator('#password').fill('geheim123');
+  await reg.locator('#signupBtn').click();
+  await reg.getByText('Bestätigungs-Mail').waitFor();
+  assert.equal(signupBody.email, 'neu@b.de');
+  await reg.close();
+
   console.log('SMOKE OK');
 } finally {
   await browser.close();
