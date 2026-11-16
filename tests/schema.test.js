@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { newDb, A, B } from './helpers/db.js';
+import { newDb, asUser, A, B } from './helpers/db.js';
 
 let db;
 
@@ -13,7 +13,7 @@ const action = async (id, token, a) => (await db.query('select public.note_actio
 const get = async (id) => (await db.query('select * from public.notes where id = $1', [id])).rows[0];
 
 beforeAll(async () => {
-  db = await newDb(['001_schema.sql', '002_app_secret.sql']);
+  db = await newDb(['001_schema.sql', '002_app_secret.sql', '004_followup.sql', '005_ai_usage.sql']);
 });
 
 describe('Schema', () => {
@@ -131,5 +131,38 @@ describe('Schema', () => {
     } finally {
       await db.exec('reset role; reset test.uid');
     }
+  });
+
+  it('ai_usage_hit: 50 Aufrufe pro Tag erlaubt, der 51. nicht', async () => {
+    const hit = async (day = '2026-11-16') => (await db.query('select public.ai_usage_hit($1, 50, $2::date) as ok', [A, day])).rows[0].ok;
+    for (let i = 1; i <= 50; i++) expect(await hit(), `Aufruf ${i}`).toBe(true);
+    expect(await hit()).toBe(false);
+    expect(await hit()).toBe(false);
+    expect(await hit('2026-11-17'), 'neuer Tag zählt neu').toBe(true);
+  });
+
+  it('ai_usage_hit zählt pro Nutzer getrennt', async () => {
+    expect((await db.query('select public.ai_usage_hit($1, 1, $2::date) as ok', [B, '2026-12-01'])).rows[0].ok).toBe(true);
+    expect((await db.query('select public.ai_usage_hit($1, 1, $2::date) as ok', [A, '2026-12-01'])).rows[0].ok).toBe(true);
+    expect((await db.query('select public.ai_usage_hit($1, 1, $2::date) as ok', [B, '2026-12-01'])).rows[0].ok).toBe(false);
+  });
+
+  it('ai_usage_hit ist für authenticated nicht aufrufbar', async () => {
+    await asUser(db, A, async () => {
+      await expect(db.query('select public.ai_usage_hit($1, 50)', [A])).rejects.toThrow();
+    });
+  });
+
+  it('ai_usage: RLS ist an (auf Supabase haben anon/authenticated sonst Standardrechte)', async () => {
+    const r = await db.query("select relrowsecurity as on from pg_class where oid = 'public.ai_usage'::regclass");
+    expect(r.rows[0].on).toBe(true);
+    expect((await db.query("select count(*)::int as c from pg_policies where tablename = 'ai_usage'")).rows[0].c).toBe(0);
+  });
+
+  it('ai_usage ist für authenticated nicht lesbar', async () => {
+    await asUser(db, A, async () => {
+      const result = await db.query('select count(*)::int as c from public.ai_usage').then((r) => r.rows[0].c, () => 'verweigert');
+      expect([0, 'verweigert']).toContain(result);
+    });
   });
 });
