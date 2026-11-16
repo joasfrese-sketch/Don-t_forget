@@ -5,7 +5,7 @@ import { openEdit } from './ui/edit.js';
 import { openSettings } from './ui/settings.js';
 import { toast } from './ui/util.js';
 import { initTheme } from './lib/theme.js';
-import { createNotifier, attachSync, routeAction, defaultPlatform } from './lib/notify.js';
+import { createNotifier, attachSync, routeAction, defaultPlatform, noticeFor } from './lib/notify.js';
 
 initTheme();
 
@@ -24,7 +24,7 @@ function route() {
     if (note) openEdit(note, settings, () => app.reload());
     else history.replaceState(null, '', '#/');
   } else if (h === '#/einstellungen') {
-    openSettings(settings, (s) => { settings = s; app.setSettings(s); sync?.syncNow(); }, notifier);
+    openSettings(settings, (s) => { settings = s; app.setSettings(s); sync?.syncNow(); }, notifier, () => sync?.syncNow());
   }
 }
 
@@ -39,6 +39,7 @@ async function setupNotifications() {
     if (notifier.platform.isNative && permission !== 'granted' && permission !== 'denied') await notifier.requestPermission();
   } catch (e) { console.warn('Berechtigung:', e); }
   sync = attachSync(store, notifier);
+  sync.onResult((result) => app?.setNotice(noticeFor(result)));
   await sync.syncNow();
 }
 

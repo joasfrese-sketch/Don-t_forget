@@ -18,7 +18,7 @@ export function normalizeSettings(raw, zone = deviceZone()) {
   const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   return {
     default_time: time(r.default_time, DEFAULTS.default_time),
-    timezone: typeof r.timezone === 'string' && r.timezone ? r.timezone : zone,
+    timezone: zone, // immer die Zone des Geräts (auch nach einer Reise), nie eine gespeicherte
     followup_enabled: typeof r.followup_enabled === 'boolean' ? r.followup_enabled : DEFAULTS.followup_enabled,
     followup_hours: Number.isInteger(r.followup_hours) && r.followup_hours >= 1 && r.followup_hours <= 24 ? r.followup_hours : DEFAULTS.followup_hours,
     evening_from: time(r.evening_from, DEFAULTS.evening_from),
@@ -82,9 +82,10 @@ export function createStore(storage, { now = () => new Date(), tz } = {}) {
 
     saveSettings: (patch) => exclusive(async () => {
       const current = await readSettings();
-      const allowed = Object.fromEntries(Object.entries(patch ?? {}).filter(([k]) => k in DEFAULTS || k === 'timezone'));
+      const allowed = Object.fromEntries(Object.entries(patch ?? {}).filter(([k]) => k in DEFAULTS));
       const next = normalizeSettings({ ...current, ...allowed }, zone);
-      await storage.set(KEYS.settings, JSON.stringify(next));
+      const { timezone: _zone, ...persist } = next; // die Zone wird nicht gespeichert
+      await storage.set(KEYS.settings, JSON.stringify(persist));
       emit();
       return next;
     }),

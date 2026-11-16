@@ -24,7 +24,9 @@ export function planNotifications(notes, settings, now) {
     const minutes = new Set();
     for (const { t } of open) {
       const f = followupTime(new Date(t), settings.timezone, settings.evening_from, settings.morning_at, settings.followup_hours);
-      if (f.getTime() > now.getTime()) minutes.add(Math.floor(f.getTime() / 60000));
+      const minute = Math.floor(f.getTime() / 60000);
+      // erst abrunden, dann prüfen: eine schon begonnene Minute läge in der Vergangenheit (Android würde sofort feuern)
+      if (minute * 60000 > now.getTime()) minutes.add(minute);
     }
     for (const minute of minutes) {
       const at = new Date(minute * 60000);

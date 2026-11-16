@@ -18,7 +18,8 @@ export function createNotifier(platform) {
 
     sync: (notes, settings, now = new Date()) => exclusive(async () => {
       try {
-        if ((await platform.checkPermission()) !== 'granted') return { scheduled: 0, reason: 'no-permission' };
+        const permission = await platform.checkPermission();
+        if (permission !== 'granted') return { scheduled: 0, reason: 'no-permission', permission };
         const plan = planNotifications(notes, settings, now);
         await platform.cancelAll();
         if (plan.length) await platform.schedule(plan);
@@ -34,16 +35,39 @@ export function createNotifier(platform) {
 }
 
 // Hält die Alarme aktuell: bei jeder Änderung im Speicher wird neu geplant.
+// Das Ergebnis jedes Planens geht an die Zuhörer (onResult), damit die Oberfläche „Erinnerungen sind aus“ zeigen kann.
 export function attachSync(store, notifier, { now = () => new Date() } = {}) {
   let pending = Promise.resolve();
+  let last = null;
+  const listeners = new Set();
   const syncNow = () => {
     pending = pending
-      .then(async () => notifier.sync(await store.listNotes(), await store.getSettings(), now()))
+      .then(async () => {
+        const result = await notifier.sync(await store.listNotes(), await store.getSettings(), now());
+        last = result;
+        for (const fn of listeners) { try { fn(result); } catch { /* ein Zuhörer darf nichts blockieren */ } }
+        return result;
+      })
       .catch(() => {});
     return pending;
   };
   const off = store.onChange(() => { syncNow(); });
-  return { off, syncNow, idle: () => pending };
+  return {
+    off, syncNow,
+    idle: () => pending,
+    lastResult: () => last,
+    onResult: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+  };
+}
+
+// Hinweistext für die Hauptansicht, wenn Erinnerungen nicht ankommen können (sonst null).
+export function noticeFor(result) {
+  if (!result) return null;
+  if (result.reason === 'no-permission') {
+    return result.permission === 'denied' ? 'Erinnerungen sind aus: Benachrichtigungen sind blockiert.' : 'Erinnerungen sind noch nicht erlaubt.';
+  }
+  if (result.reason === 'error') return 'Erinnerungen konnten nicht geplant werden.';
+  return null;
 }
 
 // Aktion aus einer Benachrichtigung: „Erledigt“, „Später“ oder Antippen.
@@ -59,8 +83,7 @@ export async function routeAction(actionId, extra, { store, navigate }) {
 // ---------- Plattformen ----------
 
 // Android (und iOS): echte geplante Alarme, die auch bei geschlossener App kommen.
-export function capacitorPlatform() {
-  const LN = LocalNotifications;
+export function capacitorPlatform(LN = LocalNotifications) {
   return {
     isNative: true,
     async init() {
@@ -73,9 +96,13 @@ export function capacitorPlatform() {
     checkPermission: async () => (await LN.checkPermissions()).display,
     requestPermission: async () => (await LN.requestPermissions()).display,
     async schedule(list) {
+      // Ohne Erlaubnis für exakte Alarme (Android 12/12L) ungenau planen. Sonst öffnet das Plugin bei JEDEM Planen
+      // die Einstellungsseite – und wir planen bei jeder Änderung und jedem Zurückkehren in die App.
+      let exact = true;
+      try { exact = (await LN.checkExactNotificationSetting()).exact_alarm === 'granted'; } catch { exact = true; } // z. B. iOS
       await LN.schedule({
         notifications: list.map((n) => ({
-          id: n.id, title: n.title, body: n.body, channelId: CHANNEL,
+          id: n.id, title: n.title, body: n.body, channelId: CHANNEL, isExactNotification: exact,
           schedule: { at: n.at, allowWhileIdle: true },
           actionTypeId: n.kind === 'reminder' ? ACTION_TYPE : undefined,
           extra: { noteId: n.noteId ?? null, kind: n.kind },

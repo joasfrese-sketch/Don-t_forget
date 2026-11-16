@@ -40,6 +40,23 @@ describe('Einstellungen', () => {
   });
 });
 
+describe('Zeitzone folgt immer dem Gerät', () => {
+  it('eine früher gespeicherte Zone wird ignoriert (nach einer Reise)', async () => {
+    const storage = memoryStorage({ 'dtf.settings': JSON.stringify({ timezone: 'Europe/Berlin', default_time: '16:00' }) });
+    const store = createStore(storage, { tz: 'Asia/Tokyo' });
+    const s = await store.getSettings();
+    expect([s.timezone, s.default_time]).toEqual(['Asia/Tokyo', '16:00']);
+  });
+  it('saveSettings speichert keine Zone und gibt die Gerätezone zurück', async () => {
+    const storage = memoryStorage();
+    const store = createStore(storage, { tz: 'Asia/Tokyo' });
+    const s = await store.saveSettings({ timezone: 'UTC', default_time: '18:00' });
+    expect(s.timezone).toBe('Asia/Tokyo');
+    expect(JSON.parse(await storage.get('dtf.settings')).timezone).toBeUndefined();
+    expect((await createStore(storage, { tz: 'America/New_York' }).getSettings()).timezone).toBe('America/New_York');
+  });
+});
+
 describe('Notizen', () => {
   it('anlegen: getrimmter Text, nid zählt hoch, Status offen', async () => {
     const { store } = mk();

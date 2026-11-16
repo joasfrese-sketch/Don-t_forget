@@ -118,6 +118,28 @@ describe('planNotifications – Nachfassen', () => {
   });
 });
 
+describe('planNotifications – nie in der Vergangenheit', () => {
+  it('Hinweis, dessen Minute schon begonnen hat, wird nicht geplant (sonst feuert Android ihn sofort und doppelt)', () => {
+    // Erinnerung 07:00:30Z (08:00:30 Berlin) → Nachfassen 12:00:30Z; jetzt ist 12:00:10Z → die Minute 12:00 ist schon da
+    const n = note('Sekunden', '2026-11-16T07:00:30.000Z');
+    const p = planNotifications([n], settings, new Date('2026-11-16T12:00:10Z'));
+    expect(digests(p)).toEqual([]);
+    expect(p.every((x) => x.at.getTime() > new Date('2026-11-16T12:00:10Z').getTime())).toBe(true);
+  });
+  it('Hinweis in der nächsten Minute wird geplant', () => {
+    const n = note('Sekunden', '2026-11-16T07:01:30.000Z'); // Nachfassen 12:01:30Z → Minute 12:01
+    const d = digests(planNotifications([n], settings, new Date('2026-11-16T12:00:10Z')));
+    expect(d.map((x) => x.at.toISOString())).toEqual(['2026-11-16T12:01:00.000Z']);
+  });
+  it('nichts im Plan liegt jemals vor „jetzt“ (zufällige Sekunden)', () => {
+    const notes = Array.from({ length: 40 }, (_, i) => note('n' + i, new Date(Date.UTC(2026, 10, 16, 6, i * 7, (i * 13) % 60)).toISOString()));
+    for (const sec of [0, 1, 29, 30, 59]) {
+      const nowT = new Date(Date.UTC(2026, 10, 16, 12, 0, sec));
+      expect(planNotifications(notes, settings, nowT).every((x) => x.at.getTime() > nowT.getTime())).toBe(true);
+    }
+  });
+});
+
 describe('planNotifications – Allgemeines', () => {
   it('IDs sind eindeutig, Hinweis-IDs liegen über 1 Milliarde, sortiert nach Zeit', () => {
     const p = plan([note('a', '2026-11-16T13:00:00.000Z'), note('b', '2026-11-17T13:00:00.000Z')]);

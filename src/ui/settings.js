@@ -8,7 +8,7 @@ import { validateFollowup } from '../lib/followup-settings.js';
 const THEMES = [['system', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']];
 const ids = { system: 'themeSystem', light: 'themeLight', dark: 'themeDark' };
 
-export function openSettings(settings, onSaved, notifier) {
+export function openSettings(settings, onSaved, notifier, onNotificationsChanged = () => {}) {
   const activeTheme = readTheme(localStorage);
   const dlg = openDialog(`
     <div class="flex flex-col gap-5">
@@ -95,7 +95,7 @@ export function openSettings(settings, onSaved, notifier) {
   };
   $('#sTime', dlg).addEventListener('change', (e) => {
     if (!e.target.value) return showCurrent();
-    save({ default_time: e.target.value, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || current.timezone });
+    save({ default_time: e.target.value });
   });
   $('#fuEnabled', dlg).addEventListener('change', (e) => save({ followup_enabled: e.target.checked }));
   $('#fuHours', dlg).addEventListener('change', (e) => save({ followup_hours: e.target.valueAsNumber }));
@@ -104,12 +104,12 @@ export function openSettings(settings, onSaved, notifier) {
   showCurrent();
   $('#sClose', dlg).addEventListener('click', () => dlg.close());
   $('#aiKey', dlg).addEventListener('change', (e) => save({ ai_key: e.target.value.trim() }));
-  renderNotifications(dlg, notifier);
+  renderNotifications(dlg, notifier, onNotificationsChanged);
   return dlg;
 }
 
 // Zeigt, ob Erinnerungen auf diesem Gerät auch wirklich ankommen können, und bietet die nötigen Schritte an.
-async function renderNotifications(dlg, notifier) {
+async function renderNotifications(dlg, notifier, onChanged) {
   const text = $('#notifStatus', dlg);
   const allow = $('#notifAllow', dlg);
   const exact = $('#exactBtn', dlg);
@@ -126,7 +126,7 @@ async function renderNotifications(dlg, notifier) {
       text.textContent = 'Noch nicht erlaubt: ohne Erlaubnis kann die App dich nicht erinnern.';
     }
   };
-  allow.addEventListener('click', async () => { try { await notifier.requestPermission(); } catch (e) { toast(e.message); } refresh(); });
+  allow.addEventListener('click', async () => { try { await notifier.requestPermission(); } catch (e) { toast(e.message); } await refresh(); onChanged(); });
   exact.addEventListener('click', async () => { try { await notifier.platform.openExactAlarmSettings(); } catch (e) { toast(e.message); } });
   try { await refresh(); } catch { text.textContent = 'Status konnte nicht gelesen werden.'; }
 }

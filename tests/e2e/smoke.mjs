@@ -83,6 +83,12 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
   const { page } = await openApp();
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'text', 'Eingabefeld fokussiert');
   assert.match(await page.locator('#whenLabel').textContent(), /heute 17:00/);
+  // Ohne Erlaubnis sagt die Hauptansicht es klar (Headless-Chromium meldet Benachrichtigungen als blockiert)
+  await page.locator('#notice').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#noticeText').textContent(), /Erinnerungen sind aus: Benachrichtigungen sind blockiert\./);
+  await page.locator('#noticeBtn').click();
+  await page.locator('#themeLight').waitFor(); // Einstellungen offen
+  await page.locator('#sClose').click();
   await page.locator('#text').fill('Mama anrufen');
   await page.locator('#text').press('Enter');
   await page.getByText('Mama anrufen').waitFor();
@@ -192,7 +198,7 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
   await untilStored(page, 'dtf.settings', 'v.followup_enabled === false');
   assert.equal(await page.locator('#fuHours').isDisabled(), true, 'Felder bei „aus“ gesperrt');
   // Benachrichtigungen: Headless-Chromium meldet „blockiert“, dann gibt es keine Erlauben-Taste
-  await page.getByText('Benachrichtigungen sind blockiert').waitFor();
+  await page.locator('#notifStatus').filter({ hasText: 'Benachrichtigungen sind blockiert' }).waitFor();
   assert.equal(await page.locator('#notifAllow').isVisible(), false);
   await page.locator('#aiKey').fill('sk-ant-test');
   await page.locator('#aiKey').evaluate((el) => el.blur());
@@ -206,11 +212,14 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
 // ---------------------------------------------------------------- Benachrichtigungen: Erlaubnis und pünktliche Meldung
 {
   const { page } = await openApp({ notification: 'default' });
+  await page.locator('#notice').waitFor({ state: 'visible' });
+  assert.match(await page.locator('#noticeText').textContent(), /Erinnerungen sind noch nicht erlaubt\./);
   await page.locator('#openSettings').click();
   await page.getByText('Noch nicht erlaubt').waitFor();
   await page.locator('#notifAllow').click();
   await page.getByText('Erinnerungen sind eingeschaltet.').waitFor();
   assert.equal(await page.locator('#notifAllow').isVisible(), false);
+  await page.locator('#notice').waitFor({ state: 'hidden' }); // nach der Erlaubnis verschwindet der Hinweis
   await page.close();
 }
 {
@@ -221,6 +230,7 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
     seedNote(3, 'schon erledigt', '2026-11-16T09:03:00.000Z', { status: 'done' }),
   ] } });
   await page.waitForTimeout(300); // Start: Plan wird angemeldet
+  assert.equal(await page.locator('#notice').isVisible(), false, 'mit Erlaubnis kein Hinweis');
   assert.deepEqual(await page.evaluate(() => window.__shown), [], 'vorher nichts');
   await page.clock.fastForward(3 * 60 * 1000);
   assert.deepEqual(await page.evaluate(() => window.__shown), [["Don't forget", 'gleich dran']]);

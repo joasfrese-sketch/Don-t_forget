@@ -31,6 +31,10 @@ describe('Android-Projekt', () => {
     const m = manifest();
     for (const p of ['USE_EXACT_ALARM', 'VIBRATE', 'INTERNET']) expect(m, p).toContain(`android.permission.${p}`);
   });
+  it('keine Sicherung in die Google-Cloud: Notizen und Claude-Schlüssel bleiben auf dem Gerät', () => {
+    expect(manifest()).toContain('android:allowBackup="false"');
+    expect(manifest()).not.toContain('android:allowBackup="true"');
+  });
   it('Plugin bringt Alarm-Empfänger, Neustart-Wiederherstellung und seine Berechtigungen selbst mit (werden beim Bau zusammengeführt)', () => {
     const plugin = readFileSync(new URL('node_modules/@capacitor/local-notifications/android/src/main/AndroidManifest.xml', root), 'utf8');
     for (const part of ['TimedNotificationPublisher', 'LocalNotificationRestoreReceiver', 'android.intent.action.BOOT_COMPLETED', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'RECEIVE_BOOT_COMPLETED']) {

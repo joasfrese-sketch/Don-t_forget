@@ -17,6 +17,10 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
         <h1 class="text-xl font-semibold">🔔 Don't forget</h1>
         <a href="#/einstellungen" id="openSettings" class="btn-ghost text-lg" aria-label="Einstellungen">⚙︎</a>
       </header>
+      <div id="notice" class="hidden items-center justify-between gap-3 rounded-xl border border-line bg-brand/10 px-3 py-2 text-sm" role="status">
+        <span id="noticeText"></span>
+        <button type="button" id="noticeBtn" class="btn-ghost shrink-0 border border-line">Einstellungen</button>
+      </div>
       <form id="add" class="card flex flex-col gap-2 p-3">
         <div class="flex gap-2">
           <input id="text" autocomplete="off" enterkeyhint="done" placeholder="Was fällt dir ein?" class="field" autofocus />
@@ -143,6 +147,7 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
   });
 
   $('#openSettings', root).addEventListener('click', (e) => { e.preventDefault(); onOpenSettings(); });
+  $('#noticeBtn', root).addEventListener('click', () => onOpenSettings());
 
   return {
     reload,
@@ -150,5 +155,12 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
     setSettings(s) { settings = s; renderWhen(); },
     getNote: (id) => notes.find((n) => n.id === id),
     focus: () => input.focus(),
+    // Hinweis über der Eingabe, z. B. „Erinnerungen sind aus“; null blendet ihn aus
+    setNotice(text) {
+      const box = $('#notice', root);
+      $('#noticeText', root).textContent = text ?? '';
+      box.classList.toggle('hidden', !text);
+      box.classList.toggle('flex', !!text);
+    },
   };
 }
