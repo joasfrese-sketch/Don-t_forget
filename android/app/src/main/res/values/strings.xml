@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Don\'t forget</string>
+    <string name="title_activity_main">Don\'t forget</string>
+    <string name="package_name">de.dontforget.app</string>
+    <string name="custom_url_scheme">de.dontforget.app</string>
+</resources>
