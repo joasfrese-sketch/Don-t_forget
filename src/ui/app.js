@@ -3,6 +3,7 @@ import { listNotes, createNote, markDone, snooze } from '../lib/data.js';
 import { groupNotes } from '../lib/notes-view.js';
 import { defaultRemindAt, formatWhen, toLocalInputValue, zonedToUtc } from '../lib/time.js';
 import { $, esc, toast } from './util.js';
+import { mountVoice } from './voice.js';
 
 export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
   let notes = [];
@@ -33,6 +34,7 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
 
   const input = $('#text', root);
   const whenInput = $('#whenInput', root);
+  mountVoice(root, { input, getSettings: () => settings, onSaved: () => reload() });
 
   function nextAt() {
     return customAt || defaultRemindAt(new Date(), settings.default_time, tz());

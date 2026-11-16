@@ -166,6 +166,143 @@ try {
   assert.equal(signupBody.email, 'neu@b.de');
   await reg.close();
 
+  const until2 = async (fn, pg) => { for (let i = 0; i < 100; i++) { if (fn()) return; await pg.waitForTimeout(50); } throw new Error('Zeitüberschreitung'); };
+  // --- Sprechen und ✨ (KI) ---
+  const SPEECH = {
+    none: `Object.defineProperty(window, 'SpeechRecognition', { value: undefined, configurable: true });
+           Object.defineProperty(window, 'webkitSpeechRecognition', { value: undefined, configurable: true });`,
+    ok: `window.SpeechRecognition = window.webkitSpeechRecognition = class {
+           start() { Promise.resolve().then(() => { this.onresult && this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: 'morgen Zahnarzt anrufen' }], { isFinal: true })] }); this.onend && this.onend(); }); }
+           stop() {}
+         };`,
+    denied: `window.SpeechRecognition = window.webkitSpeechRecognition = class {
+           start() { Promise.resolve().then(() => { this.onerror && this.onerror({ error: 'not-allowed' }); this.onend && this.onend(); }); }
+           stop() {}
+         };`,
+  };
+  async function appPage({ speech, parse }) {
+    const pg = await browser.newPage({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
+    await pg.clock.install({ time: new Date('2026-11-16T09:00:00Z') });
+    const st = { posts: [], parseBodies: [] };
+    await pg.route(`${SB}/auth/v1/**`, (r) => r.fulfill({ json: user }));
+    await pg.route(`${SB}/rest/v1/**`, (r) => {
+      const req = r.request();
+      const single = (req.headers()['accept'] || '').includes('vnd.pgrst.object');
+      if (req.url().includes('/user_settings')) {
+        const cfg = { default_time: '17:00:00', timezone: 'Europe/Berlin' };
+        return r.fulfill({ status: req.method() === 'GET' ? 200 : 201, json: single ? cfg : [cfg] });
+      }
+      if (req.method() === 'POST') {
+        const body = req.postDataJSON();
+        st.posts.push(body);
+        const n = { id: 'v' + st.posts.length, status: 'open', updated_at: new Date().toISOString(), ...body };
+        return r.fulfill({ status: 201, json: single ? n : [n] });
+      }
+      return r.fulfill({ json: [] });
+    });
+    await pg.route(`${SB}/functions/v1/parse-note`, (r) => {
+      st.parseBodies.push(r.request().postDataJSON());
+      const res = parse();
+      return r.fulfill({ status: res.status ?? 200, json: res.json });
+    });
+    await pg.addInitScript((sess) => localStorage.setItem('sb-example-auth-token', JSON.stringify(sess)), session);
+    await pg.addInitScript(SPEECH[speech]);
+    await pg.goto('http://localhost:4317/');
+    await pg.locator('#text').waitFor();
+    return { pg, st };
+  }
+  const TWO = { json: { notes: [{ text: 'Reifen wechseln', date: '2026-11-20', time: '09:00' }, { text: 'Zahnarzt anrufen', date: null, time: null }] } };
+
+  { // ohne Spracherkennung: kein Mikrofon, ✨ nur mit Text; Vorschau, Entfernen, Speichern
+    const { pg, st } = await appPage({ speech: 'none', parse: () => TWO });
+    assert.equal(await pg.locator('#micBtn').count(), 0, 'kein Mikrofon ohne Spracherkennung');
+    assert.equal(await pg.locator('#aiBtn').isDisabled(), true, '✨ bei leerem Feld gesperrt');
+    await pg.locator('#text').fill('Reifen am Freitag um 9 und Zahnarzt anrufen');
+    assert.equal(await pg.locator('#aiBtn').isDisabled(), false, '✨ mit Text aktiv');
+    await pg.locator('#aiBtn').click();
+    await pg.locator('#previewSave').waitFor();
+    assert.equal(st.parseBodies[0].text, 'Reifen am Freitag um 9 und Zahnarzt anrufen');
+    assert.equal(st.parseBodies[0].timezone, 'Europe/Berlin');
+    assert.equal(await pg.locator('[data-row]').count(), 2);
+    await pg.getByText('Fr 20.11. 09:00').waitFor();
+    await pg.getByText('heute 17:00').first().waitFor();
+    if (process.env.SHOT_DIR) {
+      await pg.screenshot({ path: `${process.env.SHOT_DIR}/preview-light.png` });
+      await pg.emulateMedia({ colorScheme: 'dark' });
+      await pg.waitForTimeout(400);
+      await pg.screenshot({ path: `${process.env.SHOT_DIR}/preview-dark.png` });
+      await pg.emulateMedia({ colorScheme: 'light' });
+    }
+    await pg.locator('#previewSave').click();
+    await until2(() => st.posts.length === 2, pg);
+    assert.deepEqual(st.posts.map((b) => [b.text, b.remind_at, b.custom_time]), [
+      ['Reifen wechseln', '2026-11-20T08:00:00.000Z', true],
+      ['Zahnarzt anrufen', '2026-11-16T16:00:00.000Z', false],
+    ]);
+    assert.equal(await pg.locator('#text').inputValue(), '', 'Feld nach dem Speichern leer');
+    await pg.close();
+  }
+  { // Eintrag in der Vorschau entfernen und Text ändern
+    const { pg, st } = await appPage({ speech: 'none', parse: () => TWO });
+    await pg.locator('#text').fill('zwei Dinge');
+    await pg.locator('#aiBtn').click();
+    await pg.locator('#previewSave').waitFor();
+    await pg.locator('[data-remove="0"]').click();
+    assert.equal(await pg.locator('[data-row]').count(), 1);
+    await pg.locator('[data-field="text"]').fill('Zahnarzt Dr. Weber anrufen');
+    await pg.locator('#previewSave').click();
+    await until2(() => st.posts.length === 1, pg);
+    assert.equal(st.posts[0].text, 'Zahnarzt Dr. Weber anrufen');
+    await pg.close();
+  }
+  { // Abbrechen: nichts gespeichert, Text bleibt
+    const { pg, st } = await appPage({ speech: 'none', parse: () => TWO });
+    await pg.locator('#text').fill('doch nicht');
+    await pg.locator('#aiBtn').click();
+    await pg.locator('#previewCancel').click();
+    assert.equal(st.posts.length, 0);
+    assert.equal(await pg.locator('#text').inputValue(), 'doch nicht');
+    await pg.close();
+  }
+  { // KI nicht eingerichtet
+    const { pg, st } = await appPage({ speech: 'none', parse: () => ({ status: 503, json: { error: 'not_configured' } }) });
+    await pg.locator('#text').fill('Zahnarzt anrufen');
+    await pg.locator('#aiBtn').click();
+    await pg.getByText('Claude ist noch nicht eingerichtet.').waitFor();
+    assert.equal(st.posts.length, 0);
+    assert.equal(await pg.locator('#text').inputValue(), 'Zahnarzt anrufen', 'Text bleibt im Feld');
+    await pg.close();
+  }
+  { // Claude findet keinen Termin
+    const { pg } = await appPage({ speech: 'none', parse: () => ({ json: { notes: [] } }) });
+    await pg.locator('#text').fill('hm');
+    await pg.locator('#aiBtn').click();
+    await pg.getByText('Daraus konnte ich keinen Termin machen. Bitte tippen.').waitFor();
+    assert.equal(await pg.locator('#text').inputValue(), 'hm');
+    await pg.close();
+  }
+  { // Mikrofon vorhanden: Text erscheint im Feld, Anfrage geht an Claude, Vorschau
+    const { pg, st } = await appPage({ speech: 'ok', parse: () => ({ json: { notes: [{ text: 'Zahnarzt anrufen', date: '2026-11-17', time: null }] } }) });
+    await pg.locator('#micBtn').waitFor();
+    await pg.locator('#micBtn').click();
+    await pg.locator('#previewSave').waitFor();
+    assert.equal(st.parseBodies[0].text, 'morgen Zahnarzt anrufen');
+    assert.equal(await pg.locator('#text').inputValue(), 'morgen Zahnarzt anrufen');
+    await pg.getByText('morgen 17:00').first().waitFor();
+    await pg.close();
+  }
+  { // Mikrofon-Recht verweigert: Meldung, App bleibt bedienbar
+    const { pg, st } = await appPage({ speech: 'denied', parse: () => TWO });
+    await pg.locator('#micBtn').click();
+    await pg.getByText('Mikrofon nicht erlaubt.').waitFor();
+    assert.equal(st.parseBodies.length, 0, 'ohne Sprache keine KI-Anfrage');
+    await pg.locator('#text').fill('trotzdem tippen');
+    await pg.locator('#text').press('Enter');
+    await until2(() => st.posts.length === 1, pg);
+    assert.equal(st.posts[0].text, 'trotzdem tippen');
+    await pg.close();
+  }
+
   console.log('SMOKE OK');
 } finally {
   await browser.close();
