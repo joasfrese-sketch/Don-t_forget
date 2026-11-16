@@ -21,7 +21,7 @@ Du brauchst: ein kostenloses Konto bei [Supabase](https://supabase.com) und bei
 
 1. Auf supabase.com ein **neues Projekt** anlegen (Region z. B. Frankfurt).
 2. **Database → Extensions:** `pg_cron` und `pg_net` aktivieren.
-3. **SQL Editor:** den kompletten Inhalt von `supabase/migrations/001_schema.sql` einfügen und ausführen.
+3. **SQL Editor:** nacheinander den Inhalt von `supabase/migrations/001_schema.sql`, `002_app_secret.sql`, `004_followup.sql` und `005_ai_usage.sql` einfügen und ausführen (die Nummer 003 gibt es nicht, ihr Inhalt steckt schon in 001).
    Eine Meldung zu pg_cron am Ende ist in Ordnung – das erledigen wir in Schritt 5.
 
 ### 2. Anmeldung einstellen
@@ -58,6 +58,12 @@ npx supabase functions deploy send-reminders --no-verify-jwt
 ```bash
 npx supabase functions deploy note-action --no-verify-jwt
 ```
+
+```bash
+npx supabase functions deploy parse-note
+```
+
+(`parse-note` bleibt **mit** JWT-Prüfung, nur angemeldete Nutzer dürfen sie aufrufen.)
 
 (`DEIN_PROJEKT_REF` ist der Teil vor `.supabase.co` in deiner Projekt-URL.)
 
@@ -109,7 +115,17 @@ ein Konto anlegen.
 Bestätigungs-Mail öffnen – egal in welchem Browser. Danach auf jedem Gerät mit E-Mail und
 Passwort anmelden; die App bleibt angemeldet.
 
-### 9. Testen
+### 9. Claude einrichten (für Sprechen und ✨)
+
+Ohne diesen Schritt läuft alles andere schon. Mikrofon und ✨ melden dann „Claude ist noch nicht eingerichtet.“
+
+1. Auf [console.anthropic.com](https://console.anthropic.com) einen **API-Schlüssel** anlegen. Er ist unabhängig von deinem claude.ai-Abo und wird nach Verbrauch abgerechnet. Für kurze Notizen sind das Cent-Beträge. Lege dort bei Bedarf ein kleines Guthaben an.
+2. Im Supabase-Dashboard unter **Edge Functions → Secrets** ein Secret `ANTHROPIC_API_KEY` mit diesem Schlüssel anlegen. Er gehört nur dorthin, nie in die App, in den Code oder in einen Chat.
+3. Pro Nutzer sind **50 Aufrufe pro Tag** erlaubt (Schutz vor unerwarteten Kosten).
+
+Der gesprochene Text geht über Supabase an Anthropic und wird dort zu Terminen verarbeitet.
+
+### 10. Testen
 
 Eine Notiz anlegen, bei „ändern“ eine Zeit in 2 Minuten wählen, Gerät sperren und warten.
 
@@ -128,6 +144,9 @@ npm test         # Unit-Tests inkl. Datenbank-Tests (PGlite)
 npm run smoke    # Oberfläche im Browser gegen gemocktes Backend
 ```
 
+`npm test` prüft u. a. die Zeitregeln, die Nachfass-Logik in der Datenbank, die Farbkontraste und die Auswertung der Claude-Antworten.
+Die Edge Functions selbst (`index.ts`) lassen sich lokal nicht ausführen, ihre Logik liegt in `supabase/functions/_shared/` und ist dort getestet.
+
 ## Wie es funktioniert
 
 - Neue Notiz → Erinnerung zur Standardzeit (heute, oder morgen, wenn schon vorbei) oder zur eigenen Zeit.
@@ -136,3 +155,23 @@ npm run smoke    # Oberfläche im Browser gegen gemocktes Backend
 - „Erledigt“/„Später“ in der Nachricht rufen `note-action` mit einem Token pro Notiz auf
   („Später“ = in 1 Stunde). Auf dem iPad gibt es diese Knöpfe nicht – Tipp öffnet die Notiz in der App.
 - Alle Geräte bleiben per Supabase Realtime synchron.
+
+## Einstellungen (⚙)
+
+- **Darstellung:** System, Hell oder Dunkel. Gilt nur für das jeweilige Gerät.
+- **Erinnerungen:** Standardzeit, Benachrichtigungen auf diesem Gerät.
+- **Nachfassen:** Eine Erinnerung ist gekommen, du hast sie aber nicht erledigt? Dann gibt es einen Hinweis, in die App zu schauen:
+  tagsüber nach 5 Stunden, bei Erinnerungen ab 18:00 am nächsten Morgen um 8:00, bei Erinnerungen in der Nacht um 8:00 am selben Morgen.
+  Mehrere offene ergeben einen gemeinsamen Hinweis (nur die Anzahl, keine Texte). Pro Notiz gibt es höchstens einen Hinweis. Alle Werte sind einstellbar.
+- **Konto:** deine E-Mail, Passwort ändern, Abmelden.
+
+## Sprechen und ✨
+
+- 🎤 (nur wo der Browser Spracherkennung kann: Chrome/Edge auf Android und PC): tippen, sprechen, nochmal tippen oder kurz warten.
+- ✨ schickt den Text im Eingabefeld an Claude. Auf dem **iPad**: das Mikrofon der Tastatur zum Diktieren benutzen, danach ✨ tippen.
+- Claude macht aus „Reifen am Freitag um 9 wechseln und morgen den Zahnarzt anrufen“ zwei Erinnerungen. Du siehst vorher eine Vorschau, kannst Text und Zeit ändern oder Einträge entfernen und bestätigst mit **Speichern**.
+- Ohne genannte Uhrzeit gilt deine Standardzeit.
+
+## Hinweis zu den App-Symbolen
+
+Die Symbole sind dunkelblau. Bereits installierte Apps zeigen sie evtl. erst nach einer Neuinstallation.
