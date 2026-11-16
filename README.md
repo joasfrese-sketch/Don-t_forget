@@ -14,6 +14,9 @@ Datenbank, Realtime, Edge Functions, pg_cron), Hosting auf Vercel.
 Du brauchst: ein kostenloses Konto bei [Supabase](https://supabase.com) und bei
 [Vercel](https://vercel.com), außerdem Node.js auf deinem PC für zwei Befehle.
 
+> **Für dieses Repository bereits erledigt:** Das Supabase-Projekt `Don't_forget` ist eingerichtet
+> (Schema, Cron, Vault-Schlüssel, beide Edge Functions). Weiter bei Schritt 2, dann 7 und 8.
+
 ### 1. Supabase-Projekt anlegen
 
 1. Auf supabase.com ein **neues Projekt** anlegen (Region z. B. Frankfurt).
@@ -54,10 +57,6 @@ npx supabase link --project-ref DEIN_PROJEKT_REF
 ```
 
 ```bash
-npx supabase secrets set VAPID_SUBJECT=mailto:deine@email.de VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... CRON_SECRET=...
-```
-
-```bash
 npx supabase functions deploy send-reminders --no-verify-jwt
 ```
 
@@ -67,15 +66,19 @@ npx supabase functions deploy note-action --no-verify-jwt
 
 (`DEIN_PROJEKT_REF` ist der Teil vor `.supabase.co` in deiner Projekt-URL.)
 
-### 5. Minütliche Prüfung einschalten
+### 5. Schlüssel im Vault ablegen und minütliche Prüfung einschalten
 
-Im **SQL Editor** ausführen (Werte ersetzen):
+`supabase/migrations/002_app_secret.sql` im SQL Editor ausführen, dann (Werte ersetzen):
 
 ```sql
 select vault.create_secret('https://DEIN_PROJEKT_REF.supabase.co', 'project_url');
 select vault.create_secret('DEIN_CRON_SECRET', 'cron_secret');
+select vault.create_secret('https://DEIN_PROJEKT_REF.supabase.co', 'vapid_subject');
+select vault.create_secret('PUBLIC_KEY_AUS_SCHRITT_3', 'vapid_public_key');
+select vault.create_secret('PRIVATE_KEY_AUS_SCHRITT_3', 'vapid_private_key');
 ```
 
+Die Edge Functions lesen diese Werte selbst aus dem Vault – Function-Secrets sind nicht nötig.
 Danach den letzten Block aus `001_schema.sql` (ab `-- ---------- Jede Minute …`) noch einmal ausführen.
 Prüfen: `select * from cron.job;` zeigt `dont-forget-reminders`.
 

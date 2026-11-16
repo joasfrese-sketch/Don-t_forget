@@ -14,6 +14,9 @@ const STUBS = `
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
   grant usage on schema auth to authenticated, service_role;
   grant execute on function auth.uid() to authenticated, service_role;
+  create schema vault;
+  create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
+  insert into vault.decrypted_secrets values ('cron_secret', 'c1'), ('vapid_private_key', 'p1'), ('other', 'x');
   insert into auth.users values ('${A}'), ('${B}');
 `;
 
@@ -29,7 +32,9 @@ const get = async (id) => (await db.query('select * from public.notes where id =
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(STUBS);
-  await db.exec(readFileSync(new URL('../supabase/migrations/001_schema.sql', import.meta.url), 'utf8'));
+  for (const f of ['001_schema.sql', '002_app_secret.sql']) {
+    await db.exec(readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8'));
+  }
 });
 
 describe('Schema', () => {
@@ -124,6 +129,26 @@ describe('Schema', () => {
     await db.exec(`set role authenticated; set test.uid = '${A}'`);
     try {
       await expect(db.query('select * from public.claim_due_notes()')).rejects.toThrow();
+    } finally {
+      await db.exec('reset role; reset test.uid');
+    }
+  });
+
+  it('app_secret liefert erlaubte Secrets an service_role', async () => {
+    await db.exec('set role service_role');
+    try {
+      expect((await db.query("select public.app_secret('cron_secret') as v")).rows[0].v).toBe('c1');
+      expect((await db.query("select public.app_secret('vapid_private_key') as v")).rows[0].v).toBe('p1');
+      expect((await db.query("select public.app_secret('other') as v")).rows[0].v).toBeNull();
+    } finally {
+      await db.exec('reset role');
+    }
+  });
+
+  it('authenticated darf app_secret nicht aufrufen', async () => {
+    await db.exec(`set role authenticated; set test.uid = '${A}'`);
+    try {
+      await expect(db.query("select public.app_secret('cron_secret')")).rejects.toThrow();
     } finally {
       await db.exec('reset role; reset test.uid');
     }
