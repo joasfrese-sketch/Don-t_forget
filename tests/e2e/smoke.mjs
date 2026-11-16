@@ -15,6 +15,7 @@ const user = { id: '00000000-0000-0000-0000-00000000000a', email: 'a@b.de', aud:
 const session = { access_token: 'tok', refresh_token: 'ref', token_type: 'bearer', expires_in: 3600, expires_at: 4102444800, user };
 const notes = [];
 const posts = [];
+const settingsWrites = [];
 
 const browser = await chromium.launch();
 try {
@@ -32,6 +33,7 @@ try {
     const single = (req.headers()['accept'] || '').includes('vnd.pgrst.object');
     if (url.pathname.endsWith('/user_settings')) {
       const s = { default_time: '17:00:00', timezone: 'Europe/Berlin' };
+      if (req.method() !== 'GET') { settingsWrites.push(req.postDataJSON()); return r.fulfill({ status: 201, json: single ? s : [s] }); }
       return r.fulfill({ json: single ? s : [s] });
     }
     if (url.pathname.endsWith('/notes')) {
@@ -81,6 +83,25 @@ try {
   await page.locator('#changePw').click();
   await page.getByText('Passwort geändert').waitFor();
   assert.deepEqual(authPuts.map((b) => b.password), ['geheim123']);
+  // --- Nachfassen ---
+  const until = async (fn, what) => { for (let i = 0; i < 100; i++) { if (fn()) return; await page.waitForTimeout(50); } throw new Error('Zeitüberschreitung: ' + what); };
+  const setField = async (sel, v) => { const l = page.locator(sel); await l.fill(v); await l.evaluate((el) => el.blur()); }; // blur löst change aus
+  await page.locator('#followupToggle').click();
+  await setField('#fuHours', '3');
+  await until(() => settingsWrites.some((w) => w.followup_hours === 3), 'followup_hours 3 gespeichert');
+  const before = settingsWrites.length;
+  await setField('#fuHours', '0');
+  await page.getByText('Stunden: 1 bis 24.').waitFor();
+  assert.equal(settingsWrites.length, before, 'ungültiger Wert wird nicht gespeichert');
+  assert.equal(await page.locator('#fuHours').inputValue(), '3', 'Eingabe springt auf den letzten gültigen Wert zurück');
+  await setField('#evening', '07:00');
+  await page.getByText('Abend muss nach dem Morgen liegen.').waitFor();
+  assert.equal(settingsWrites.length, before, 'Abend vor Morgen wird nicht gespeichert');
+  if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/followup.png` });
+  await page.locator('#fuEnabled').uncheck();
+  await until(() => settingsWrites.some((w) => w.followup_enabled === false), 'followup_enabled aus gespeichert');
+  assert.equal(await page.locator('#fuHours').isDisabled(), true, 'Felder sind bei „aus“ gesperrt');
+
   if (process.env.SHOT_DIR) {
     for (const scheme of ['light', 'dark']) {
       await page.locator(scheme === 'dark' ? '#themeDark' : '#themeLight').click();

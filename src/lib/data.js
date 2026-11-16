@@ -1,7 +1,11 @@
 // Datenzugriff auf Supabase: Einstellungen, Notizen, Realtime.
 import { supabase, unwrap } from './supabase.js';
 
-export const DEFAULTS = { default_time: '17:00', timezone: 'Europe/Berlin' };
+export const DEFAULTS = {
+  default_time: '17:00', timezone: 'Europe/Berlin',
+  followup_enabled: true, followup_hours: 5, evening_from: '18:00', morning_at: '08:00',
+};
+const COLUMNS = Object.keys(DEFAULTS).join(', ');
 
 async function uid() {
   const { data } = await supabase.auth.getUser();
@@ -9,21 +13,31 @@ async function uid() {
   return data.user.id;
 }
 
-const normSettings = (s) => ({ default_time: String(s.default_time).slice(0, 5), timezone: s.timezone });
+const hhmm = (v, fallback) => (v ? String(v).slice(0, 5) : fallback);
+// Fehlende Felder (z. B. ältere Zeile) kommen aus den Vorgaben; Zeiten werden auf HH:MM gekürzt.
+const normSettings = (s) => ({
+  default_time: hhmm(s.default_time, DEFAULTS.default_time),
+  timezone: s.timezone || DEFAULTS.timezone,
+  followup_enabled: s.followup_enabled ?? DEFAULTS.followup_enabled,
+  followup_hours: s.followup_hours ?? DEFAULTS.followup_hours,
+  evening_from: hhmm(s.evening_from, DEFAULTS.evening_from),
+  morning_at: hhmm(s.morning_at, DEFAULTS.morning_at),
+});
 
 export async function getSettings() {
   const user_id = await uid();
-  const row = unwrap(await supabase.from('user_settings').select('default_time, timezone').eq('user_id', user_id).maybeSingle());
+  const row = unwrap(await supabase.from('user_settings').select(COLUMNS).eq('user_id', user_id).maybeSingle());
   if (row) return normSettings(row);
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULTS.timezone;
   const created = unwrap(await supabase.from('user_settings')
-    .upsert({ user_id, default_time: DEFAULTS.default_time, timezone }).select('default_time, timezone').single());
+    .upsert({ user_id, default_time: DEFAULTS.default_time, timezone }).select(COLUMNS).single());
   return normSettings(created);
 }
 
-export async function saveSettings({ default_time, timezone }) {
+// Schreibt nur die übergebenen Felder.
+export async function saveSettings(patch) {
   const user_id = await uid();
-  unwrap(await supabase.from('user_settings').upsert({ user_id, default_time, timezone }));
+  unwrap(await supabase.from('user_settings').upsert({ user_id, ...patch }));
 }
 
 export async function listNotes() {
