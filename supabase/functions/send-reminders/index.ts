@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       try {
         await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload, { TTL: 3600, urgency: 'high' });
         sent++;
-      } catch (e) {
+      } catch (e: any) {
         if (e.statusCode === 404 || e.statusCode === 410) await admin.from('push_subscriptions').delete().eq('id', sub.id);
         else console.error('push failed', e.statusCode, e.body);
       }
