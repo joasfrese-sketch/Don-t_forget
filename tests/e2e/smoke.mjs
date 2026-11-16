@@ -20,7 +20,12 @@ const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
   await page.clock.install({ time: new Date('2026-11-16T09:00:00Z') });
-  await page.route(`${SB}/auth/v1/**`, (r) => r.fulfill({ json: user }));
+  const authPuts = [];
+  await page.route(`${SB}/auth/v1/**`, (r) => {
+    const req = r.request();
+    if (req.method() === 'PUT' && req.url().endsWith('/auth/v1/user')) authPuts.push(req.postDataJSON());
+    return r.fulfill({ json: user });
+  });
   await page.route(`${SB}/rest/v1/**`, async (r) => {
     const req = r.request();
     const url = new URL(req.url());
@@ -56,6 +61,35 @@ try {
   assert.equal(posts[0].custom_time, false);
   assert.equal(await input.inputValue(), '');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'text', 'Fokus bleibt');
+
+  // --- Einstellungen: Darstellung und Konto ---
+  await page.locator('#openSettings').click();
+  await page.locator('#themeDark').click();
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('dark')), true, 'Dunkel gesetzt');
+  await page.reload();
+  await page.locator('#text').waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('dark')), true, 'Dunkel bleibt nach Neuladen');
+  await page.locator('#themeLight').waitFor(); // Adresse #/einstellungen öffnet den Dialog nach dem Neuladen wieder
+  await page.locator('#themeLight').click();
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('dark')), false, 'Hell gesetzt');
+  assert.equal((await page.locator('#accountEmail').textContent()).trim(), 'a@b.de');
+  await page.locator('#newPw').fill('123');
+  await page.locator('#changePw').click();
+  await page.getByText('Mindestens 6 Zeichen.').first().waitFor();
+  assert.equal(authPuts.length, 0, 'kurzes Passwort wird nicht gesendet');
+  await page.locator('#newPw').fill('geheim123');
+  await page.locator('#changePw').click();
+  await page.getByText('Passwort geändert').waitFor();
+  assert.deepEqual(authPuts.map((b) => b.password), ['geheim123']);
+  if (process.env.SHOT_DIR) {
+    for (const scheme of ['light', 'dark']) {
+      await page.locator(scheme === 'dark' ? '#themeDark' : '#themeLight').click();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: `${process.env.SHOT_DIR}/settings-${scheme}.png` });
+    }
+    await page.locator('#themeSystem').click();
+  }
+  await page.locator('#sClose').click();
 
   if (process.env.SHOT_DIR) {
     for (const scheme of ['light', 'dark']) {
