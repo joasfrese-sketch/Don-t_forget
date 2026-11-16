@@ -30,3 +30,11 @@ export async function asUser(db, uid, fn) {
   await db.exec(`set role authenticated; set test.uid = '${uid}'`);
   try { return await fn(); } finally { await db.exec('reset role; reset test.uid'); }
 }
+
+// Leere Datenbank (nur Supabase-Nachbau), darin beliebiges SQL ausführen – z. B. die gebündelte Datei.
+export async function newDbFromSql(sql) {
+  const db = new PGlite();
+  await db.exec(STUBS);
+  await db.exec(sql);
+  return db;
+}
