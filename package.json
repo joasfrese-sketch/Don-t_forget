@@ -12,9 +12,14 @@
     "build:sql": "node scripts/build-sql.mjs"
   },
   "dependencies": {
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/preferences": "^8.0.1",
     "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
     "@electric-sql/pglite": "^0.2.17",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
