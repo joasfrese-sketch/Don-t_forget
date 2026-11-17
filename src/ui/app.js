@@ -52,11 +52,11 @@ export function createApp(root, settings, { onOpenNote, onOpenSettings }) {
   function row(n, kind) {
     const when = formatWhen(new Date(n.remind_at), new Date(), tz());
     const actions = kind === 'due' ? `
-      <button data-done="${n.id}" class="btn-ghost" title="Erledigt" aria-label="Erledigt">✓</button>
-      <button data-snooze="${n.id}" class="btn-ghost" title="Später (+1 Std.)" aria-label="Später">⏰</button>` : '';
+      <button data-done="${esc(n.id)}" class="btn-ghost" title="Erledigt" aria-label="Erledigt">✓</button>
+      <button data-snooze="${esc(n.id)}" class="btn-ghost" title="Später (+1 Std.)" aria-label="Später">⏰</button>` : '';
     return `
       <li class="flex items-center gap-2 px-3 py-2">
-        <button data-open="${n.id}" class="min-w-0 flex-1 text-left">
+        <button data-open="${esc(n.id)}" class="min-w-0 flex-1 text-left">
           <div class="truncate ${kind === 'done' ? 'text-muted line-through' : ''}">${esc(n.text)}</div>
           <div class="text-xs text-muted">${kind === 'done' ? 'erledigt' : esc(when)}</div>
         </button>${actions}

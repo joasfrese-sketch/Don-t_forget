@@ -141,6 +141,15 @@ export function desktopPlatform(bridge) {
 }
 
 // Browser (nur Entwicklung und Tests): Meldungen der nächsten 24 Stunden, solange die Seite offen ist.
+// iOS/iPadOS kennt `new Notification` nicht, dort geht nur über den Service Worker.
+function showWebNotification(n) {
+  const opts = { body: n.body, icon: './icon-192.png', badge: './badge-96.png' };
+  const direct = () => { try { new Notification(n.title, opts); } catch { /* ignorieren */ } };
+  const sw = globalThis.navigator?.serviceWorker;
+  if (!sw?.getRegistration) return direct();
+  return sw.getRegistration().then((reg) => (reg?.showNotification ? reg.showNotification(n.title, opts) : direct())).catch(direct);
+}
+
 export function browserPlatform() {
   let timers = [];
   const supported = () => typeof Notification !== 'undefined';
@@ -156,7 +165,7 @@ export function browserPlatform() {
       for (const n of list) {
         const delay = n.at.getTime() - now;
         if (delay > 0 && delay <= 24 * 3600e3) {
-          timers.push(setTimeout(() => { try { new Notification(n.title, { body: n.body }); } catch { /* ignorieren */ } }, delay));
+          timers.push(setTimeout(() => showWebNotification(n), delay));
         }
       }
     },

@@ -7,7 +7,10 @@ import { toast } from './ui/util.js';
 import { initTheme } from './lib/theme.js';
 import { createNotifier, attachSync, routeAction, defaultPlatform, noticeFor } from './lib/notify.js';
 
+import { registerServiceWorker } from './lib/pwa.js';
+
 initTheme();
+registerServiceWorker();
 
 const root = document.getElementById('app');
 let app = null;

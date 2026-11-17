@@ -8,14 +8,14 @@ const files = (dir) => (existsSync(dir) ? readdirSync(dir).flatMap((f) => { cons
 
 describe('keine Cloud-Anbindung mehr (lokale App, nichts wird veröffentlicht)', () => {
   it('Server- und Veröffentlichungs-Dateien sind weg', () => {
-    for (const p of ['supabase', 'vercel.json', '.env.example', '.env', 'scripts/build-sql.mjs', 'public/sw.js', 'src/lib/supabase.js', 'src/lib/push.js', 'src/ui/login.js']) {
+    for (const p of ['supabase', 'vercel.json', '.env.example', '.env', 'scripts/build-sql.mjs', 'src/lib/supabase.js', 'src/lib/push.js', 'src/ui/login.js']) {
       expect(existsSync(join(root, p)), p).toBe(false);
     }
   });
 
-  it('Code und Paketdateien erwähnen weder Supabase noch Vercel noch Service Worker', () => {
+  it('Code und Paketdateien erwähnen weder Supabase noch Vercel', () => {
     const list = [...files(join(root, 'src')), ...files(join(root, 'public')), join(root, 'index.html'), join(root, 'package.json')];
-    const bad = list.filter((f) => /supabase|vercel|serviceWorker|service-worker|pglite/i.test(readFileSync(f, 'utf8')));
+    const bad = list.filter((f) => /supabase|vercel|pglite/i.test(readFileSync(f, 'utf8')));
     expect(bad).toEqual([]);
   });
 

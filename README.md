@@ -54,6 +54,18 @@ Am PC gilt:
 - Das Mikrofon 🎤 gibt es am PC nicht. Nutze das Diktieren von Windows (**Windows-Taste + H**) im Eingabefeld und tippe danach auf ✨.
 - Deine Notizen liegen nur auf diesem PC (Ordner `%APPDATA%\Don't forget`). Sie werden nicht mit dem Handy abgeglichen.
 
+## iPad (Web-App über GitHub Pages)
+
+Einmalig einrichten (Repository muss dafür öffentlich sein):
+
+1. GitHub → Repository → **Settings → Pages → Source: „GitHub Actions“**.
+2. Der Workflow „Web-App für das iPad“ läuft bei jedem Push auf `main`. Die Adresse steht danach im Lauf (`https://<nutzer>.github.io/<repo>/`).
+3. Auf dem iPad in **Safari** öffnen → Teilen → **Zum Home-Bildschirm**. Von dort starten (nur so sind Mitteilungen möglich, iPadOS 16.4+), dann ⚙ → Benachrichtigungen erlauben.
+
+Grenzen auf dem iPad: Apple erlaubt Web-Apps keine Erinnerungen bei geschlossener App ohne Server. Deshalb gilt:
+Mitteilungen kommen nur, solange die App geöffnet ist. Für Sperrbildschirm-Erinnerungen bei geschlossener App: ⚙ → **iPad / Browser → Kalender (.ics)**,
+die Datei öffnen und zum Kalender hinzufügen. Der Kalender erinnert dann selbst. Änderungen danach musst du erneut exportieren. Die Notizen liegen nur im Browser-Speicher dieses iPads.
+
 ## Claude-Schlüssel (nur für Sprechen und ✨)
 
 Ohne Schlüssel läuft alles andere. Mikrofon und ✨ melden dann „Claude-Schlüssel fehlt“.
@@ -68,7 +80,7 @@ Der gesprochene oder getippte Text geht direkt vom Gerät an Anthropic und wird 
 
 - **Kein Abgleich** zwischen Geräten. Notizen gibt es nur auf dem Gerät, auf dem du sie angelegt hast.
 - **Deinstallieren löscht die Notizen.** Es gibt keine Sicherung in der Cloud.
-- **Das iPad ist nicht dabei.** Erinnerungen bei geschlossener App brauchen dort eine richtige App (Mac oder Cloud-Build und ein Apple-Konto).
+- **iPad:** als Web-App (siehe unten). Sie erinnert nur, solange sie geöffnet ist; für Erinnerungen bei geschlossener App gibt es den Kalender-Export (⚙ → iPad / Browser).
 - Die Spracherkennung (🎤) hängt vom Gerät ab. Wenn sie fehlt, hilft das Mikrofon der Tastatur und danach ✨.
 - Android erlaubt nur begrenzt viele geplante Alarme. Die App plant die nächsten **60** (Erinnerungen und Hinweise);
   bei jeder Änderung und beim Öffnen wird neu geplant.

@@ -20,7 +20,7 @@
 - Claude-Modell: `claude-haiku-5-5`. Limit 50 Aufrufe pro Nutzer und Tag. Text höchstens 1000 Zeichen, höchstens 10 Notizen pro Antwort, Notiztext höchstens 200 Zeichen.
 - Der Anthropic-Schlüssel steht nur als Function-Secret `ANTHROPIC_API_KEY` (nie im Code, im Chat oder im Vault).
 - Es geht nichts live, bevor der Nutzer zustimmt (siehe Task 9). Arbeit auf dem Branch `claude/tender-cannon-r3cb03`, Repository `/home/user/don-t_forget`.
-- Supabase-Projekt `Don't_forget`, ID `slejmuspmlqddefifsxw`. Live eingespielt sind `001_schema`, `002_app_secret`, `003_hardening` (dessen Inhalt steht schon in `001_schema.sql`). Neue Migrationen heißen `004_followup.sql` und `005_ai_usage.sql`.
+- Supabase-Projekt `Don't_forget`, ID `<projekt-id>`. Live eingespielt sind `001_schema`, `002_app_secret`, `003_hardening` (dessen Inhalt steht schon in `001_schema.sql`). Neue Migrationen heißen `004_followup.sql` und `005_ai_usage.sql`.
 - Von dieser Sitzung aus sind `supabase.co` und `anthropic.com` nicht erreichbar. Alles wird mit Tests und nachgebautem Backend abgesichert. Edge-Function-Dateien (`index.ts`) lassen sich nicht ausführen, ihre Logik liegt deshalb in testbaren `_shared`-Dateien.
 
 ## Review Focus
@@ -286,8 +286,8 @@ Dunkel: page `#1b2430`, card `#243040`, line `#33425a`, ink `#e6ebf2`, muted `#9
 
 Dieser Task läuft **erst, wenn der Nutzer nach Abschluss und Prüfung der Tasks 1–8 zugestimmt hat**. Vorher anhalten und fragen.
 
-- [ ] **Step 1: Migrationen einspielen** auf `slejmuspmlqddefifsxw` mit `apply_migration` (`004_followup`, `005_ai_usage`). Danach `get_advisors` (security) → keine neuen Warnungen; `list_tables` zeigt neue Spalten und `ai_usage`.
+- [ ] **Step 1: Migrationen einspielen** auf `<projekt-id>` mit `apply_migration` (`004_followup`, `005_ai_usage`). Danach `get_advisors` (security) → keine neuen Warnungen; `list_tables` zeigt neue Spalten und `ai_usage`.
 - [ ] **Step 2: Edge Functions hochladen:** `send-reminders` (ersetzt, `verify_jwt: false`) mit `_shared/reminders.ts`, `parse-note` (neu, `verify_jwt: true`) mit `_shared/parse.ts`. Die minütlichen Aufrufe des Cron-Jobs prüfen (`net._http_response`: Status 200 und `{"claimed":0,"sent":0,"followups":0}`).
 - [ ] **Step 3: Schlüssel:** `create_edge_function_secret` für `ANTHROPIC_API_KEY` auslösen. Der Nutzer trägt den Wert selbst im Dashboard ein.
-- [ ] **Step 4: App veröffentlichen:** Vercel-Projekt `dont-forget` (`prj_k38Be9cTdr24GAx0VzAXs3dWKY22`, Team `team_lfqTBcq6Q6u0ZvSXSwGgfkn4`) per `create_deployment` aus dem Branch-Stand. Hinweis: Aus dem Branch ist das nur eine Vorschau-Version; die Live-Adresse folgt erst mit `main`. Dem Nutzer das sagen und die Zusammenführung in `main` vorschlagen.
+- [ ] **Step 4: App veröffentlichen:** Vercel-Projekt `dont-forget` (`<vercel-projekt>`, Team `<vercel-team>`) per `create_deployment` aus dem Branch-Stand. Hinweis: Aus dem Branch ist das nur eine Vorschau-Version; die Live-Adresse folgt erst mit `main`. Dem Nutzer das sagen und die Zusammenführung in `main` vorschlagen.
 - [ ] **Step 5: Abnahme auf den Geräten** gemeinsam mit dem Nutzer: Farben, Umschalter, Nachfass-Hinweis (Testwerte kurz stellen), Sprechen.

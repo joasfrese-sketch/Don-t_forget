@@ -174,7 +174,7 @@ Nachrichten mit `kind: 'digest'` bekommen `tag: 'digest'`, **ohne** die Aktionsk
 
 **Es geht nichts live, bevor der Nutzer es freigibt.** Die Umsetzung endet mit „fertig zur Abnahme“ (Tests grün, Prüfung des gesamten Codes). Erst nach seiner Zusage folgt die Auslieferung, und zwar **alle drei Teile zusammen** in dieser Reihenfolge, weil die neue `send-reminders` die neue Datenbankfunktion braucht:
 
-- Migrationen auf das Supabase-Projekt `Don't_forget` (Projekt-ID `slejmuspmlqddefifsxw`) per `apply_migration`, anschließend Sicherheits-Advisor prüfen. Auf dem Projekt sind bisher `001_schema`, `002_app_secret` und `003_hardening` eingespielt. Die Änderungen aus `003_hardening` (fester `search_path` am Trigger, `pg_net` im Schema `extensions`) stehen schon in `001_schema.sql` des Repositorys, deshalb gibt es dort keine eigene Datei. Die neuen Dateien heißen `004_followup.sql` und `005_ai_usage.sql`.
+- Migrationen auf das Supabase-Projekt `Don't_forget` (Projekt-ID `<projekt-id>`) per `apply_migration`, anschließend Sicherheits-Advisor prüfen. Auf dem Projekt sind bisher `001_schema`, `002_app_secret` und `003_hardening` eingespielt. Die Änderungen aus `003_hardening` (fester `search_path` am Trigger, `pg_net` im Schema `extensions`) stehen schon in `001_schema.sql` des Repositorys, deshalb gibt es dort keine eigene Datei. Die neuen Dateien heißen `004_followup.sql` und `005_ai_usage.sql`.
 - Edge Functions neu hochladen (`send-reminders` ersetzt, `parse-note` neu).
 - `ANTHROPIC_API_KEY` trägt der Nutzer selbst ein. Bis dahin zeigt die App bei ✨/Mikrofon die Meldung „Claude ist noch nicht eingerichtet“. Alles andere läuft schon.
 - App auf Vercel neu veröffentlichen (Projekt `dont-forget`).

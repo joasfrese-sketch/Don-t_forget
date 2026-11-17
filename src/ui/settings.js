@@ -1,12 +1,16 @@
 // Einstellungen: Darstellung, Erinnerungen (inkl. Nachfassen), Benachrichtigungen, KI.
-import { saveSettings } from '../lib/data.js';
+import { saveSettings, listNotes } from '../lib/data.js';
+import { Capacitor } from '@capacitor/core';
 import { $, esc, toast } from './util.js';
 import { openDialog } from './dialog.js';
 import { readTheme, setTheme } from '../lib/theme.js';
+import { buildIcs } from '../lib/ics.js';
 import { validateFollowup } from '../lib/followup-settings.js';
 
 const THEMES = [['system', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']];
 const ids = { system: 'themeSystem', light: 'themeLight', dark: 'themeDark' };
+
+const isWeb = () => !globalThis.dtfDesktop && !Capacitor.isNativePlatform();
 
 export function openSettings(settings, onSaved, notifier, onNotificationsChanged = () => {}) {
   const activeTheme = readTheme(localStorage);
@@ -64,6 +68,13 @@ export function openSettings(settings, onSaved, notifier, onNotificationsChanged
         <p class="text-xs text-muted">Die App läuft im Hintergrund (Symbol unten rechts neben der Uhr), damit Erinnerungen auch bei geschlossenem Fenster kommen. Beenden: Rechtsklick auf das Symbol.</p>
       </section>` : ''}
 
+      ${isWeb() ? `
+      <section class="flex flex-col gap-2">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">iPad / Browser</h3>
+        <p class="text-xs text-muted">Als Web-App kann ich nur erinnern, solange sie geöffnet ist. Damit der iPad auch bei geschlossener App erinnert, kannst du die offenen Erinnerungen in den Kalender übernehmen: Datei antippen und „Zum Kalender hinzufügen“ wählen. Spätere Änderungen musst du erneut exportieren.</p>
+        <button type="button" id="icsExport" class="btn-ghost border border-line">Offene Erinnerungen in den Kalender (.ics)</button>
+      </section>` : ''}
+
       <section class="flex flex-col gap-2">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">KI (Claude)</h3>
         <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Claude-Schlüssel (sk-ant-…)" class="field" value="${esc(settings.ai_key ?? '')}" />
@@ -115,6 +126,17 @@ export function openSettings(settings, onSaved, notifier, onNotificationsChanged
   $('#sClose', dlg).addEventListener('click', () => dlg.close());
   $('#aiKey', dlg).addEventListener('change', (e) => save({ ai_key: e.target.value.trim() }));
   renderNotifications(dlg, notifier, onNotificationsChanged);
+  $('#icsExport', dlg)?.addEventListener('click', async () => {
+    try {
+      const ics = buildIcs(await listNotes());
+      if (!ics.includes('BEGIN:VEVENT')) return toast('Keine offenen Erinnerungen in der Zukunft.');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+      a.download = 'dont-forget.ics';
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    } catch (err) { toast(err.message); }
+  });
   if (globalThis.dtfDesktop) {
     const box = $('#autostart', dlg);
     globalThis.dtfDesktop.getAutostart().then((on) => { box.checked = !!on; box.disabled = false; }).catch(() => {});
