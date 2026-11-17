@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { palette } from '../palette.js';
 
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -41,7 +42,7 @@ function files(dir) {
 }
 
 it('src und index.html nutzen keine amber-/stone-Klassen mehr', () => {
-  const list = [...files(new URL('../src', import.meta.url).pathname), new URL('../index.html', import.meta.url).pathname];
+  const list = [...files(fileURLToPath(new URL('../src', import.meta.url))), fileURLToPath(new URL('../index.html', import.meta.url))];
   const bad = list.filter((f) => /\b(amber|stone)-\d{2,3}\b/.test(readFileSync(f, 'utf8')));
   expect(bad).toEqual([]);
 });

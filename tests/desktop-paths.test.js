@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest';
+import path from 'node:path';
 import { resolveAppPath, isAllowedFetchUrl } from '../desktop/paths.cjs';
 
 const DIST = '/app/dist';
 
 describe('resolveAppPath', () => {
   it('Wurzel und Dateien', () => {
-    expect(resolveAppPath(DIST, '/')).toBe('/app/dist/index.html');
-    expect(resolveAppPath(DIST, '')).toBe('/app/dist/index.html');
-    expect(resolveAppPath(DIST, '/index.html')).toBe('/app/dist/index.html');
-    expect(resolveAppPath(DIST, '/assets/index-abc.js')).toBe('/app/dist/assets/index-abc.js');
-    expect(resolveAppPath(DIST, '/icon-192.png')).toBe('/app/dist/icon-192.png');
+    expect(resolveAppPath(DIST, '/')).toBe(path.join(DIST, 'index.html'));
+    expect(resolveAppPath(DIST, '')).toBe(path.join(DIST, 'index.html'));
+    expect(resolveAppPath(DIST, '/index.html')).toBe(path.join(DIST, 'index.html'));
+    expect(resolveAppPath(DIST, '/assets/index-abc.js')).toBe(path.join(DIST, 'assets/index-abc.js'));
+    expect(resolveAppPath(DIST, '/icon-192.png')).toBe(path.join(DIST, 'icon-192.png'));
   });
   it('Pfadtricks liefern nichts', () => {
     for (const p of ['/../secret', '/assets/../../secret', '/%2e%2e/secret', '/%2E%2E/secret', '/assets/%2e%2e/%2e%2e/x', '/..%2fsecret', '/assets\\..\\..\\x', '/a\0b', '/%00', '//etc/passwd', '/assets/..%5c..%5cx']) {
