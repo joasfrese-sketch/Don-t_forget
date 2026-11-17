@@ -5,7 +5,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { createScheduler } = require('./scheduler.cjs');
-const { resolveAppPath, isAllowedFetchUrl } = require('./paths.cjs');
+const { resolveAppPath, isAllowedFetchUrl, sanitizeFetchInit } = require('./paths.cjs');
+const { readJson, writeJsonAtomic } = require('./files.cjs');
 
 const APP_ID = 'de.dontforget.app';
 const SCHEME = 'dtf';
@@ -20,13 +21,12 @@ if (process.env.DTF_USER_DATA) app.setPath('userData', process.env.DTF_USER_DATA
 
 protocol.registerSchemesAsPrivileged([{ scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
-const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
-const writeJson = (file, value) => { try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(value)); } catch { /* ignorieren */ } };
 
 let win = null;
 let tray = null;
 let quitting = false;
 let scheduler = null;
+const activeToasts = new Set(); // Windows lässt Klicks auf Nachrichten verfallen, wenn das Objekt aufgeräumt wird
 
 const fromApp = (event) => typeof event.senderFrame?.url === 'string' && event.senderFrame.url.startsWith(ORIGIN);
 
@@ -49,7 +49,11 @@ function showNotification(e) {
     return;
   }
   const n = new Notification({ title: e.title, body: e.body, icon: ICON });
-  n.on('click', () => sendAction('tap', { noteId: e.noteId ?? null, kind: e.kind }));
+  activeToasts.add(n);
+  if (activeToasts.size > 50) activeToasts.delete(activeToasts.values().next().value); // nicht unbegrenzt wachsen
+  const release = () => activeToasts.delete(n);
+  n.on('click', () => { release(); sendAction('tap', { noteId: e.noteId ?? null, kind: e.kind }); });
+  n.on('close', release);
   n.show();
 }
 
@@ -64,6 +68,8 @@ function createWindow() {
   win.webContents.on('will-navigate', (event, url) => { if (!url.startsWith(ORIGIN)) event.preventDefault(); });
   // Schließen = ins Tray; die App läuft weiter und erinnert (Beenden nur über das Tray-Menü)
   win.on('close', (event) => { if (!quitting) { event.preventDefault(); win.hide(); } });
+  // Windows meldet Abmelden/Herunterfahren als „session-end“: dann nicht verstecken, sonst blockiert die App das Herunterfahren
+  win.on('session-end', () => { quitting = true; });
   win.loadURL(`${ORIGIN}index.html`);
 }
 
@@ -83,14 +89,12 @@ function createTray() {
 function registerIpc(userData) {
   ipcMain.handle('dtf:schedule', (event, list) => { if (!fromApp(event)) return; scheduler.set(Array.isArray(list) ? list : []); scheduler.tick(); });
   ipcMain.handle('dtf:cancelAll', (event) => { if (fromApp(event)) scheduler.cancelAll(); });
-  ipcMain.handle('dtf:getAutostart', (event) => (fromApp(event) ? app.getLoginItemSettings().openAtLogin : false));
+  ipcMain.handle('dtf:getAutostart', (event) => (fromApp(event) ? app.getLoginItemSettings({ args: ['--hidden'] }).openAtLogin : false));
   ipcMain.handle('dtf:setAutostart', (event, on) => { if (fromApp(event)) app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] }); });
   ipcMain.handle('dtf:fetch', async (event, url, init) => {
     if (!fromApp(event)) throw new Error('nicht erlaubt');
     if (!isAllowedFetchUrl(url)) throw new Error('Adresse nicht erlaubt');
-    const headers = {};
-    for (const [k, v] of Object.entries(init?.headers ?? {})) if (typeof v === 'string') headers[k] = v;
-    const res = await net.fetch(url, { method: 'POST', headers, body: typeof init?.body === 'string' ? init.body : undefined });
+    const res = await net.fetch(url, { ...sanitizeFetchInit(init), signal: AbortSignal.timeout(30_000) });
     return { status: res.status, body: await res.text() };
   });
 }
@@ -115,13 +119,14 @@ function main() {
       if (url.host !== 'app') return new Response('Nicht gefunden', { status: 404 });
       const file = resolveAppPath(DIST, url.pathname);
       if (!file) return new Response('Verboten', { status: 403 });
+      try { if (!fs.statSync(file).isFile()) return new Response('Nicht gefunden', { status: 404 }); } catch { return new Response('Nicht gefunden', { status: 404 }); }
       return net.fetch(pathToFileURL(file).toString());
     });
 
     scheduler = createScheduler({
       show: showNotification,
       loadShown: () => readJson(shownFile, []),
-      saveShown: (keys) => writeJson(shownFile, keys),
+      saveShown: (keys) => writeJsonAtomic(shownFile, keys),
     });
     setInterval(() => scheduler.tick(), TICK_MS);
     powerMonitor.on('resume', () => scheduler.tick()); // nach dem Ruhezustand sofort Verpasstes nachholen
@@ -135,7 +140,7 @@ function main() {
     const prefs = readJson(prefsFile, {});
     if (!prefs.initialized) {
       if (process.platform === 'win32') app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
-      writeJson(prefsFile, { ...prefs, initialized: true });
+      writeJsonAtomic(prefsFile, { ...prefs, initialized: true });
     }
 
     if (TEST_LOG) global.__dtfTest = { click: (extra) => sendAction('tap', extra), tick: () => scheduler.tick() };

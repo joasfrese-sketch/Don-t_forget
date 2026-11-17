@@ -9,7 +9,10 @@ const DIGEST_BASE = 1_000_000_000; // Hinweis-IDs liegen über allen Notiz-IDs
 
 const clip = (t) => (t.length > MAX_BODY ? t.slice(0, MAX_BODY - 1) + '…' : t);
 
-export function planNotifications(notes, settings, now) {
+// `pastMs` (nur Windows-App): auch Erinnerungen, die höchstens so lange her sind, kommen in den Plan. Der Hauptprozess zeigt
+// verpasste einmal nach und merkt sich, was schon gezeigt wurde. Android und Browser planen nichts in der Vergangenheit.
+export function planNotifications(notes, settings, now, { pastMs = 0 } = {}) {
+  const earliest = now.getTime() - pastMs;
   const open = notes
     .filter((n) => n.status === 'open')
     .map((n) => ({ n, t: new Date(n.remind_at).getTime() }))
@@ -17,7 +20,7 @@ export function planNotifications(notes, settings, now) {
 
   const out = [];
   for (const { n, t } of open) {
-    if (t > now.getTime()) out.push({ id: n.nid, at: new Date(t), kind: 'reminder', title: TITLE, body: clip(n.text), noteId: n.id });
+    if (t > earliest) out.push({ id: n.nid, at: new Date(t), kind: 'reminder', title: TITLE, body: clip(n.text), noteId: n.id });
   }
 
   if (settings.followup_enabled) {
@@ -26,7 +29,7 @@ export function planNotifications(notes, settings, now) {
       const f = followupTime(new Date(t), settings.timezone, settings.evening_from, settings.morning_at, settings.followup_hours);
       const minute = Math.floor(f.getTime() / 60000);
       // erst abrunden, dann prüfen: eine schon begonnene Minute läge in der Vergangenheit (Android würde sofort feuern)
-      if (minute * 60000 > now.getTime()) minutes.add(minute);
+      if (minute * 60000 > earliest) minutes.add(minute);
     }
     for (const minute of minutes) {
       const at = new Date(minute * 60000);

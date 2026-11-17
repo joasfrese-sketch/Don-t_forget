@@ -62,5 +62,6 @@
       "shortcutName": "Don't forget",
       "deleteAppDataOnUninstall": false
     }
-  }
+  },
+  "productName": "Don't forget"
 }

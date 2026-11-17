@@ -314,3 +314,18 @@ describe('desktopPlatform (Windows-App: der Hauptprozess zeigt die Nachrichten)'
     } finally { delete globalThis.dtfDesktop; }
   });
 });
+
+describe('Nachholfenster der Plattform', () => {
+  it('Plattform mit catchUpMs bekommt auch überfällige Erinnerungen, andere nicht', async () => {
+    const overdue = [note(1, 'verpasst', '2026-11-16T07:00:00.000Z')]; // 2 h vor NOW
+    const withWindow = fakePlatform({ catchUpMs: 6 * 3600e3 });
+    await createNotifier(withWindow).sync(overdue, settings, NOW);
+    expect(withWindow.calls.at(-1)[1].map((x) => x.body)).toEqual(['verpasst']);
+    const without = fakePlatform();
+    const r = await createNotifier(without).sync(overdue, settings, NOW);
+    expect(r).toEqual({ scheduled: 0 });
+  });
+  it('die Windows-Plattform hat ein Fenster von 6 Stunden', () => {
+    expect(desktopPlatform({ schedule: async () => {}, cancelAll: async () => {}, onAction: () => {} }).catchUpMs).toBe(6 * 3600e3);
+  });
+});

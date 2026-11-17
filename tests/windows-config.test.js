@@ -35,6 +35,9 @@ describe('Windows-App: Paket-Konfiguration (electron-builder)', () => {
     const sizes = Array.from({ length: 7 }, (_, i) => buf.readUInt8(6 + 16 * i) || 256);
     expect(sizes).toEqual([16, 24, 32, 48, 64, 128, 256]);
   });
+  it('Programmname in der Datei package.json (bestimmt den Datenordner %APPDATA%\\Don\'t forget)', () => {
+    expect(pkg.productName).toBe("Don't forget");
+  });
   it('Skripte', () => {
     expect(pkg.scripts.desktop).toBe('electron .');
     expect(pkg.scripts['dist:win']).toContain('--publish never');
@@ -63,6 +66,24 @@ describe('Windows-Hauptprozess: Sicherheitseinstellungen', () => {
   it('Einzelinstanz und Schließen ins Tray', () => {
     expect(main).toContain('requestSingleInstanceLock');
     expect(main).toContain('win.hide()');
+  });
+  it('Haken „Mit Windows starten“ liest den Eintrag mit denselben Argumenten wie beim Schreiben (sonst steht er auf Windows immer auf „aus“)', () => {
+    expect(main).toContain("app.getLoginItemSettings({ args: ['--hidden'] })");
+    expect(main).toContain("app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] })");
+  });
+  it('Nachrichten-Objekte werden festgehalten (sonst gehen Klicks auf Windows verloren)', () => {
+    expect(main).toContain('activeToasts');
+  });
+  it('Windows-Herunterfahren wird nicht blockiert (Fenster nur verstecken, aber nicht beim Abmelden/Herunterfahren)', () => {
+    expect(main).toContain("'session-end'");
+  });
+  it('Claude-Aufruf über den Hauptprozess: bereinigte Optionen und Zeitgrenze', () => {
+    expect(main).toContain('sanitizeFetchInit');
+    expect(main).toContain('AbortSignal.timeout');
+  });
+  it('„Schon angezeigt“-Datei atomar geschrieben, nur Dateien (keine Ordner) ausgeliefert', () => {
+    expect(main).toContain('writeJsonAtomic');
+    expect(main).toContain('isFile()');
   });
   it('kein Auslösen der Test-Haken ohne Umgebungsvariable', () => {
     expect(main).toMatch(/if \(TEST_LOG\) global\.__dtfTest/);

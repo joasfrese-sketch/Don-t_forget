@@ -140,6 +140,38 @@ describe('planNotifications – nie in der Vergangenheit', () => {
   });
 });
 
+describe('planNotifications – Nachholfenster (Windows-App: verpasste Erinnerungen nach Neustart des PCs)', () => {
+  const SIX = 6 * 3600e3;
+  const noFollowup = { ...settings, followup_enabled: false };
+  it('ohne Fenster (Android, Browser) bleibt alles wie bisher: nichts aus der Vergangenheit', () => {
+    expect(reminders(planNotifications([note('alt', '2026-11-16T08:00:00.000Z')], noFollowup, NOW))).toEqual([]);
+    expect(reminders(planNotifications([note('alt', '2026-11-16T08:00:00.000Z')], noFollowup, NOW, { pastMs: 0 }))).toEqual([]);
+  });
+  it('mit Fenster: offene Erinnerung bis 6 Stunden zurück ist dabei, ältere nicht', () => {
+    const p = planNotifications([note('vor 1 h', '2026-11-16T08:00:00.000Z'), note('vor 5 h', '2026-11-16T04:00:00.000Z'), note('vor 7 h', '2026-11-16T02:00:00.000Z')], noFollowup, NOW, { pastMs: SIX });
+    expect(reminders(p).map((x) => x.body)).toEqual(['vor 5 h', 'vor 1 h']);
+  });
+  it('erledigte Notizen sind auch im Fenster nicht dabei', () => {
+    const p = planNotifications([note('fertig', '2026-11-16T08:00:00.000Z', { status: 'done' })], noFollowup, NOW, { pastMs: SIX });
+    expect(p).toEqual([]);
+  });
+  it('genau auf der Grenze (6 Stunden) zählt nicht mehr dazu', () => {
+    const p = planNotifications([note('grenze', new Date(NOW.getTime() - SIX).toISOString())], noFollowup, NOW, { pastMs: SIX });
+    expect(reminders(p)).toEqual([]);
+  });
+  it('auch ein verpasster Nachfass-Hinweis (Minute noch im Fenster) ist dabei, ein zu alter nicht', () => {
+    // Erinnerung 08:00Z (09:00 Berlin) → Hinweis 14:00 Berlin = 13:00Z; jetzt 15:00Z → 2 h her
+    const d = digests(planNotifications([note('a', '2026-11-16T08:00:00.000Z')], settings, new Date('2026-11-16T15:00:00Z'), { pastMs: SIX }));
+    expect(d.map((x) => x.at.toISOString())).toEqual(['2026-11-16T13:00:00.000Z']);
+    const old = digests(planNotifications([note('a', '2026-11-16T08:00:00.000Z')], settings, new Date('2026-11-16T20:30:00Z'), { pastMs: SIX }));
+    expect(old).toEqual([]);
+  });
+  it('sortiert nach Zeit, Vergangenes zuerst', () => {
+    const p = planNotifications([note('später', '2026-11-16T16:00:00.000Z'), note('früher', '2026-11-16T08:00:00.000Z')], noFollowup, NOW, { pastMs: SIX });
+    expect(p.map((x) => x.body)).toEqual(['früher', 'später']);
+  });
+});
+
 describe('planNotifications – Allgemeines', () => {
   it('IDs sind eindeutig, Hinweis-IDs liegen über 1 Milliarde, sortiert nach Zeit', () => {
     const p = plan([note('a', '2026-11-16T13:00:00.000Z'), note('b', '2026-11-17T13:00:00.000Z')]);

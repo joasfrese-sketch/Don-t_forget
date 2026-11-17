@@ -100,6 +100,31 @@ try {
     await app.close();
   }
 
+  // ------------------------------------------------ Verpasst, weil der PC aus war: nach dem Start genau einmal
+  {
+    const first = await launch();
+    const stamp = await first.page.evaluate(() => {
+      const d = new Date(Date.now() - 2 * 3600e3); const p = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+    });
+    await first.page.locator('#changeWhen').click();
+    await first.page.locator('#whenInput').fill(stamp);
+    await first.page.locator('#whenInput').evaluate((el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+    await first.page.keyboard.press('Escape');
+    await first.page.locator('#text').click();
+    await first.page.locator('#text').fill('Verpasst gewesen');
+    await first.page.locator('#text').press('Enter');
+    await until(() => shown().some((x) => x.body === 'Verpasst gewesen'), 'verpasste Erinnerung kommt über den Weg Fenster → Hauptprozess');
+    await first.app.close();
+    const count = () => shown().filter((x) => x.body === 'Verpasst gewesen').length;
+    assert.equal(count(), 1, 'genau einmal');
+    // App startet erneut (PC wurde neu gestartet): nicht noch einmal
+    const second = await launch();
+    await sleep(2000);
+    assert.equal(count(), 1, 'nach Neustart nicht doppelt');
+    await second.app.close();
+  }
+
   // ------------------------------------------------ Fenster schließen, Klick auf Nachricht, zweiter Start
   {
     const { app, page } = await launch();
@@ -148,6 +173,10 @@ try {
       assert.ok(status === 403 || status === 404 || status === 'blockiert', `${p} → ${status}`);
     }
     assert.equal(await page.evaluate(() => fetch('dtf://app/index.html').then((r) => r.status)), 200);
+    for (const dirUrl of ['dtf://app/assets', 'dtf://app/assets/']) {
+      const status = await page.evaluate((u) => fetch(u).then((r) => r.status, () => 'blockiert'), dirUrl);
+      assert.notEqual(status, 200, `Ordner ${dirUrl} darf nicht ausgeliefert werden (${status})`);
+    }
     assert.equal(await page.evaluate(() => fetch('dtf://evil/index.html').then((r) => r.status, () => 'blockiert')) !== 200, true, 'fremder Host');
     // Claude-Brücke: nur die Anthropic-API
     for (const url of ['https://example.com/', 'http://api.anthropic.com/v1/messages', 'file:///etc/passwd', 'https://api.anthropic.com.evil.com/']) {

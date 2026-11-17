@@ -20,7 +20,7 @@ export function createNotifier(platform) {
       try {
         const permission = await platform.checkPermission();
         if (permission !== 'granted') return { scheduled: 0, reason: 'no-permission', permission };
-        const plan = planNotifications(notes, settings, now);
+        const plan = planNotifications(notes, settings, now, { pastMs: platform.catchUpMs ?? 0 });
         await platform.cancelAll();
         if (plan.length) await platform.schedule(plan);
         return { scheduled: plan.length };
@@ -126,6 +126,7 @@ export function capacitorPlatform(LN = LocalNotifications) {
 export function desktopPlatform(bridge) {
   return {
     isNative: true,
+    catchUpMs: 6 * 3600e3, // verpasste Erinnerungen der letzten 6 Stunden gehen an den Hauptprozess (PC war aus)
     async init() {},
     checkPermission: async () => 'granted',
     requestPermission: async () => 'granted',
