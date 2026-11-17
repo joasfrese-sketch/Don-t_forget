@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "smoke": "node tests/e2e/smoke.mjs"
+    "smoke": "node tests/e2e/smoke.mjs",
+    "desktop": "electron .",
+    "test:desktop": "xvfb-run -a node tests/e2e/desktop.mjs",
+    "dist:win": "electron-builder --win nsis --publish never"
   },
   "dependencies": {
     "@capacitor/core": "^8.6.2",
@@ -25,5 +28,39 @@
     "tailwindcss": "^3.4.14",
     "vite": "^5.4.10",
     "vitest": "^2.1.9"
+  },
+  "main": "desktop/main.cjs",
+  "description": "Notizen, die erinnern – lokal auf dem Gerät",
+  "author": "Don't forget",
+  "build": {
+    "appId": "de.dontforget.app",
+    "productName": "Don't forget",
+    "asar": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "desktop/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Dont-forget-Setup.${ext}",
+      "shortcutName": "Don't forget",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }
