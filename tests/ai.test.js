@@ -67,3 +67,33 @@ describe('parseNotes', () => {
     expect(out[0].date).toBeNull();
   });
 });
+
+describe('parseNotes über die Desktop-Brücke (Windows-App ruft Claude über den Hauptprozess)', () => {
+  const okBody = JSON.stringify({ content: [{ type: 'tool_use', name: 'create_notes', input: { notes: [{ text: 'Zahnarzt', date: null, time: null }] } }] });
+  const withBridge = async (fetchResult, fn) => {
+    const calls = [];
+    globalThis.dtfDesktop = { fetch: async (url, init) => { calls.push([url, init]); if (fetchResult instanceof Error) throw fetchResult; return fetchResult; } };
+    try { return await fn(calls); } finally { delete globalThis.dtfDesktop; }
+  };
+  it('nutzt die Brücke statt fetch und liefert die Notizen', async () => {
+    await withBridge({ status: 200, body: okBody }, async (calls) => {
+      expect(await parseNotes('Zahnarzt', settings)).toEqual([{ text: 'Zahnarzt', date: null, time: null }]);
+      expect(calls[0][0]).toBe('https://api.anthropic.com/v1/messages');
+      expect(calls[0][1].headers['x-api-key']).toBe('sk-ant-test');
+      expect(JSON.parse(calls[0][1].body).model).toBe('claude-haiku-5-5');
+    });
+  });
+  it('Fehlercodes werden wie sonst übersetzt', async () => {
+    await withBridge({ status: 401, body: '{}' }, async () => {
+      await expect(parseNotes('x', settings)).rejects.toThrow('Der Claude-Schlüssel wurde abgelehnt.');
+    });
+    await withBridge({ status: 429, body: '{}' }, async () => {
+      await expect(parseNotes('x', settings)).rejects.toThrow('Claude ist gerade überlastet oder das Limit ist erreicht. Bitte tippen.');
+    });
+  });
+  it('Fehler der Brücke → „nicht erreichbar“', async () => {
+    await withBridge(new Error('Netz weg'), async () => {
+      await expect(parseNotes('x', settings)).rejects.toThrow('Claude ist gerade nicht erreichbar. Bitte tippen.');
+    });
+  });
+});

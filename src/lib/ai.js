@@ -11,7 +11,17 @@ const MSG = {
   unavailable: 'Claude ist gerade nicht erreichbar. Bitte tippen.',
 };
 
-export async function parseNotes(text, settings, fetchImpl = (...a) => fetch(...a)) {
+// Windows-App: der Aufruf läuft über den Hauptprozess (der nur die Anthropic-API erlaubt); sonst direkt aus der App.
+async function defaultFetch(url, init) {
+  const bridge = globalThis.dtfDesktop;
+  if (bridge?.fetch) {
+    const r = await bridge.fetch(url, init);
+    return new Response(r.body, { status: r.status });
+  }
+  return fetch(url, init);
+}
+
+export async function parseNotes(text, settings, fetchImpl = defaultFetch) {
   const key = String(settings.ai_key ?? '').trim();
   if (!key) throw new Error(MSG.noKey);
   const t = String(text ?? '').trim();

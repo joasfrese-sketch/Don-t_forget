@@ -121,6 +121,24 @@ export function capacitorPlatform(LN = LocalNotifications) {
   };
 }
 
+// Windows-App (Electron): Der Hauptprozess hält den Plan und zeigt die Nachrichten zur Zeit an. Die Brücke `dtfDesktop`
+// stellt der Preload bereit.
+export function desktopPlatform(bridge) {
+  return {
+    isNative: true,
+    async init() {},
+    checkPermission: async () => 'granted',
+    requestPermission: async () => 'granted',
+    async schedule(list) {
+      await bridge.schedule(list.map((n) => ({ id: n.id, atMs: n.at.getTime(), title: n.title, body: n.body, kind: n.kind, noteId: n.noteId ?? null })));
+    },
+    cancelAll: async () => { await bridge.cancelAll(); },
+    onAction(handler) { bridge.onAction((actionId, extra) => handler(actionId, extra)); },
+    exactAlarmAllowed: async () => true,
+    openExactAlarmSettings: async () => {},
+  };
+}
+
 // Browser (nur Entwicklung und Tests): Meldungen der nächsten 24 Stunden, solange die Seite offen ist.
 export function browserPlatform() {
   let timers = [];
@@ -148,4 +166,7 @@ export function browserPlatform() {
   };
 }
 
-export const defaultPlatform = () => (Capacitor.isNativePlatform() ? capacitorPlatform() : browserPlatform());
+export const defaultPlatform = () => {
+  if (globalThis.dtfDesktop) return desktopPlatform(globalThis.dtfDesktop);
+  return Capacitor.isNativePlatform() ? capacitorPlatform() : browserPlatform();
+};

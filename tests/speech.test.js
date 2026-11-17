@@ -27,6 +27,15 @@ describe('startListening', () => {
   });
 });
 
+describe('Windows-App', () => {
+  it('Spracherkennung wird dort nicht angeboten (Electron hat keine), auch wenn das Objekt existiert', () => {
+    globalThis.window = { SpeechRecognition: class {}, dtfDesktop: {} };
+    expect(speechSupported()).toBe(false);
+    globalThis.window = { SpeechRecognition: class {} };
+    expect(speechSupported()).toBe(true);
+  });
+});
+
 describe('speechErrorMessage', () => {
   it('Meldungen', () => {
     expect(speechErrorMessage('not-allowed')).toBe('Mikrofon nicht erlaubt.');

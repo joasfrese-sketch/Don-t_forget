@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createStore } from '../src/lib/store.js';
 import { memoryStorage } from '../src/lib/storage.js';
-import { createNotifier, attachSync, routeAction, browserPlatform, capacitorPlatform, noticeFor } from '../src/lib/notify.js';
+import { createNotifier, attachSync, routeAction, browserPlatform, capacitorPlatform, desktopPlatform, defaultPlatform, noticeFor } from '../src/lib/notify.js';
 
 const NOW = new Date('2026-11-16T09:00:00Z');
 const settings = { default_time: '17:00', timezone: 'Europe/Berlin', followup_enabled: false, followup_hours: 5, evening_from: '18:00', morning_at: '08:00' };
@@ -262,4 +262,55 @@ describe('noticeFor (Hinweis in der Hauptansicht)', () => {
     expect(noticeFor({ scheduled: 0, reason: 'no-permission' })).toBe('Erinnerungen sind noch nicht erlaubt.');
   });
   it('Planungsfehler', () => expect(noticeFor({ scheduled: 0, reason: 'error' })).toBe('Erinnerungen konnten nicht geplant werden.'));
+});
+
+describe('desktopPlatform (Windows-App: der Hauptprozess zeigt die Nachrichten)', () => {
+  const fakeBridge = () => {
+    const b = { calls: [], cb: null,
+      schedule: async (l) => { b.calls.push(['schedule', l]); }, cancelAll: async () => { b.calls.push(['cancelAll']); },
+      onAction: (cb) => { b.cb = cb; } };
+    return b;
+  };
+  it('Berechtigung ist immer erteilt, exakte Zeiten sind kein Thema', async () => {
+    const p = desktopPlatform(fakeBridge());
+    expect(await p.checkPermission()).toBe('granted');
+    expect(await p.requestPermission()).toBe('granted');
+    expect(await p.exactAlarmAllowed()).toBe(true);
+    expect(p.isNative).toBe(true);
+  });
+  it('schedule gibt Zeitpunkte als Millisekunden und nur die nötigen Felder weiter', async () => {
+    const b = fakeBridge();
+    await desktopPlatform(b).schedule([{ id: 7, at: new Date('2026-11-16T16:00:00Z'), title: "Don't forget", body: 'Mama', kind: 'reminder', noteId: 'a' },
+      { id: 1_000_000_001, at: new Date('2026-11-17T07:00:00Z'), title: "Don't forget", body: 'Du hast noch 2 offene Erinnerungen.', kind: 'digest' }]);
+    expect(b.calls[0][1]).toEqual([
+      { id: 7, atMs: Date.parse('2026-11-16T16:00:00Z'), title: "Don't forget", body: 'Mama', kind: 'reminder', noteId: 'a' },
+      { id: 1_000_000_001, atMs: Date.parse('2026-11-17T07:00:00Z'), title: "Don't forget", body: 'Du hast noch 2 offene Erinnerungen.', kind: 'digest', noteId: null },
+    ]);
+  });
+  it('cancelAll und Aktionen werden durchgereicht', async () => {
+    const b = fakeBridge();
+    const p = desktopPlatform(b);
+    await p.cancelAll();
+    expect(b.calls).toEqual([['cancelAll']]);
+    const seen = [];
+    p.onAction((id, extra) => seen.push([id, extra]));
+    b.cb('tap', { noteId: 'a', kind: 'reminder' });
+    expect(seen).toEqual([['tap', { noteId: 'a', kind: 'reminder' }]]);
+  });
+  it('mit dem Notifier: Plan landet beim Hauptprozess, ohne Berechtigungsabfrage', async () => {
+    const b = fakeBridge();
+    const n = createNotifier(desktopPlatform(b));
+    const r = await n.sync([note(1, 'Mama', '2026-11-16T16:00:00.000Z')], settings, NOW);
+    expect(r).toEqual({ scheduled: 1 });
+    expect(kinds({ calls: b.calls })).toEqual(['cancelAll', 'schedule']);
+  });
+  it('defaultPlatform nimmt die Desktop-Brücke, wenn es sie gibt', async () => {
+    const b = fakeBridge();
+    globalThis.dtfDesktop = b;
+    try {
+      const p = defaultPlatform();
+      await p.cancelAll();
+      expect(b.calls).toEqual([['cancelAll']]);
+    } finally { delete globalThis.dtfDesktop; }
+  });
 });

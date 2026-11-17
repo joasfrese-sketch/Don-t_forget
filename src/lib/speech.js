@@ -1,7 +1,8 @@
 // Spracherkennung des Browsers (Chrome/Edge). Auf manchen Geräten (z. B. installierte iPad-App) nicht verfügbar.
 const ctor = () => window.SpeechRecognition || window.webkitSpeechRecognition;
 
-export const speechSupported = () => !!ctor();
+// In der Windows-App (Electron) gibt es keine Spracherkennung, auch wenn das Objekt vorhanden ist.
+export const speechSupported = () => !window.dtfDesktop && !!ctor();
 
 export function speechErrorMessage(code) {
   if (code === 'not-allowed' || code === 'service-not-allowed') return 'Mikrofon nicht erlaubt.';

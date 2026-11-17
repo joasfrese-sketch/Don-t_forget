@@ -54,6 +54,16 @@ export function openSettings(settings, onSaved, notifier, onNotificationsChanged
         </div>
       </section>
 
+      ${globalThis.dtfDesktop ? `
+      <section class="flex flex-col gap-2">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">Windows</h3>
+        <label class="flex items-center justify-between gap-3">
+          <span>Mit Windows starten</span>
+          <input id="autostart" type="checkbox" class="h-6 w-6 accent-brand" disabled />
+        </label>
+        <p class="text-xs text-muted">Die App läuft im Hintergrund (Symbol unten rechts neben der Uhr), damit Erinnerungen auch bei geschlossenem Fenster kommen. Beenden: Rechtsklick auf das Symbol.</p>
+      </section>` : ''}
+
       <section class="flex flex-col gap-2">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">KI (Claude)</h3>
         <input id="aiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Claude-Schlüssel (sk-ant-…)" class="field" value="${esc(settings.ai_key ?? '')}" />
@@ -105,6 +115,14 @@ export function openSettings(settings, onSaved, notifier, onNotificationsChanged
   $('#sClose', dlg).addEventListener('click', () => dlg.close());
   $('#aiKey', dlg).addEventListener('change', (e) => save({ ai_key: e.target.value.trim() }));
   renderNotifications(dlg, notifier, onNotificationsChanged);
+  if (globalThis.dtfDesktop) {
+    const box = $('#autostart', dlg);
+    globalThis.dtfDesktop.getAutostart().then((on) => { box.checked = !!on; box.disabled = false; }).catch(() => {});
+    box.addEventListener('change', async () => {
+      try { await globalThis.dtfDesktop.setAutostart(box.checked); toast(box.checked ? 'Startet mit Windows' : 'Startet nicht mehr mit Windows'); }
+      catch (err) { box.checked = !box.checked; toast(err.message); }
+    });
+  }
   return dlg;
 }
 

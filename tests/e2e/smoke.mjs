@@ -37,7 +37,7 @@ const seedNote = (nid, text, remind_at, o = {}) => ({
 });
 
 // Öffnet die App in einer frischen Seite. seed = { notes, settings, raw } für den lokalen Speicher.
-async function openApp({ speech = 'none', seed = {}, anthropic, notification } = {}) {
+async function openApp({ speech = 'none', seed = {}, anthropic, notification, desktop } = {}) {
   const page = await browser.newPage({ timezoneId: 'Europe/Berlin', locale: 'de-DE' });
   await page.clock.install({ time: new Date(NOW) });
   const api = { requests: [] };
@@ -65,6 +65,22 @@ async function openApp({ speech = 'none', seed = {}, anthropic, notification } =
         constructor(title, o) { window.__shown.push([title, o && o.body]); }
       };
     }, notification);
+  }
+  if (desktop) { // künstliche Brücke wie sie der Preload der Windows-App bereitstellt
+    await page.addInitScript(() => {
+      window.__bridge = { calls: [], cb: null };
+      window.dtfDesktop = {
+        async schedule(list) { window.__bridge.calls.push(['schedule', list]); },
+        async cancelAll() { window.__bridge.calls.push(['cancelAll']); },
+        onAction(cb) { window.__bridge.cb = cb; },
+        async getAutostart() { return window.__autostart ?? true; },
+        async setAutostart(v) { window.__autostart = v; window.__bridge.calls.push(['autostart', v]); },
+        async fetch(url, init) {
+          window.__bridge.calls.push(['fetch', url, init.headers['x-api-key']]);
+          return { status: 200, body: JSON.stringify({ content: [{ type: 'tool_use', name: 'create_notes', input: { notes: [{ text: 'Zahnarzt anrufen', date: null, time: null }] } }] }) };
+        },
+      };
+    });
   }
   await page.goto('http://localhost:4317/');
   await page.locator('#text').waitFor();
@@ -258,6 +274,57 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
   await page.waitForTimeout(300);
   await page.clock.fastForward(10 * 60 * 1000);
   assert.deepEqual(await page.evaluate(() => window.__shown), []);
+  await page.close();
+}
+
+// ---------------------------------------------------------------- Windows-App (künstliche Brücke)
+{
+  const { page } = await openApp({ desktop: true, speech: 'ok', seed: { settings: { followup_enabled: false, ai_key: 'sk-ant-test' } } });
+  const calls = () => page.evaluate(() => window.__bridge.calls);
+  const lastSchedule = async () => (await calls()).filter((c) => c[0] === 'schedule').at(-1)?.[1];
+  assert.equal(await page.locator('#micBtn').count(), 0, 'kein Mikrofon in der Windows-App');
+  assert.equal(await page.locator('#notice').isVisible(), false, 'keine Erlaubnis-Frage in der Windows-App');
+  // Erinnerung anlegen → Plan geht an den Hauptprozess
+  await page.locator('#changeWhen').click();
+  await page.locator('#whenInput').fill('2026-11-16T18:00');
+  await page.locator('#whenInput').evaluate((el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+  await page.keyboard.press('Escape');
+  await page.locator('#text').click();
+  await page.locator('#text').fill('Mama anrufen');
+  await page.locator('#text').press('Enter');
+  await page.getByText('Mama anrufen').waitFor();
+  await page.waitForFunction(() => window.__bridge.calls.some((c) => c[0] === 'schedule' && c[1].length === 1));
+  const plan = await lastSchedule();
+  assert.deepEqual([plan[0].title, plan[0].body, plan[0].kind, plan[0].atMs], ["Don't forget", 'Mama anrufen', 'reminder', Date.parse('2026-11-16T17:00:00Z')]);
+  assert.ok(plan[0].noteId);
+  // Klick auf die Nachricht öffnet die Notiz, „Erledigt“ ersetzt den Plan
+  await page.evaluate((id) => window.__bridge.cb('tap', { noteId: id, kind: 'reminder' }), plan[0].noteId);
+  await page.locator('#eText').waitFor();
+  await page.keyboard.press('Escape');
+  await page.evaluate((id) => window.__bridge.cb('done', { noteId: id, kind: 'reminder' }), plan[0].noteId);
+  await untilStored(page, 'dtf.notes', "v[0].status === 'done'");
+  await page.waitForFunction(() => { const c = window.__bridge.calls.filter((x) => x[0] === 'cancelAll'); return c.length >= 2; });
+  assert.equal((await calls()).at(-1)[0], 'cancelAll', 'nach „Erledigt“ wird alles entfernt und nichts Neues geplant');
+  // Start mit Windows
+  await page.locator('#openSettings').click();
+  await page.waitForFunction(() => { const b = document.querySelector('#autostart'); return b && !b.disabled; });
+  assert.equal(await page.locator('#autostart').isChecked(), true);
+  await page.locator('#autostart').uncheck();
+  await page.waitForFunction(() => window.__bridge.calls.some((c) => c[0] === 'autostart' && c[1] === false));
+  await page.locator('#sClose').click();
+  // Claude über den Hauptprozess
+  await page.locator('#text').fill('Zahnarzt anrufen');
+  await page.locator('#aiBtn').click();
+  await page.locator('#previewSave').waitFor();
+  const fetchCall = (await calls()).find((c) => c[0] === 'fetch');
+  assert.deepEqual([fetchCall[1], fetchCall[2]], ['https://api.anthropic.com/v1/messages', 'sk-ant-test']);
+  await page.close();
+}
+{ // im Browser (ohne Brücke) gibt es den Windows-Abschnitt nicht
+  const { page } = await openApp();
+  await page.locator('#openSettings').click();
+  await page.locator('#themeLight').waitFor();
+  assert.equal(await page.locator('#autostart').count(), 0);
   await page.close();
 }
 
