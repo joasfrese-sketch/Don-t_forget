@@ -17,6 +17,17 @@
         document.documentElement.classList.toggle('dark', mode === 'dark' || (mode === 'system' && !!matchMedia('(prefers-color-scheme: dark)').matches));
       })();
     </script>
+    <script id="boot-error">
+      (function () {
+        function show(msg) {
+          var app = document.getElementById('app');
+          if (app && !app.firstChild) { app.innerHTML = '<pre style="white-space:pre-wrap;padding:16px;font:14px monospace"></pre>'; app.firstChild.textContent = 'Startfehler: ' + msg; }
+        }
+        window.addEventListener('error', function (e) { setTimeout(function () { show(e.message || 'Skript konnte nicht geladen werden'); }, 0); }, true);
+        window.addEventListener('unhandledrejection', function (e) { show(String((e.reason && e.reason.message) || e.reason)); });
+        setTimeout(function () { show('Die App ist nach 8 Sekunden nicht erschienen.'); }, 8000);
+      })();
+    </script>
   </head>
   <body class="bg-page text-ink antialiased">
     <div id="app"></div>
